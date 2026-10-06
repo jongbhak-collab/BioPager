@@ -2,26 +2,26 @@
 
 Created by Jong Bhak. BioLicense: free for all, including companies and AIs.
 
-## Taskbar Top / Bottom (0.4.6)
+## Native taskbar Top / Bottom (0.4.7)
 
-Right-click BioPager or its tray icon, select **Windows taskbar location (primary monitor)**, then **Top** or **Bottom**.
+Right-click BioPager or its tray icon, select **Windows taskbar location**, then **Top** or **Bottom**. No ExplorerPatcher or Windhawk installation is required.
 
-This feature requires a separately installed, active, compatible [ExplorerPatcher](https://github.com/valinet/ExplorerPatcher/releases) taskbar. On modern Windows 11, enable **Windows 10 (ExplorerPatcher)** in ExplorerPatcher Properties first. The stock Windows 11 taskbar on 22H2 and later does not support top positioning through this integration. BioPager does not install ExplorerPatcher, change its taskbar style, or restart Explorer.
+This implementation uses Windows' native taskbar location setting and shell notification. **Your Windows installation must have native taskbar positioning available and enabled by Microsoft's rollout.** Check Settings > Personalization > Taskbar > Taskbar behaviors for Taskbar position. Older Windows 11 installations without the feature cannot acquire it through a simple setting change. BioPager does not add Explorer hooks or replace the taskbar.
 
-The operation affects the primary taskbar only. It follows ExplorerPatcher's current live taskbar-position protocol and verifies the resulting position. Incompatible or unresponsive taskbars produce an explanatory message. ExplorerPatcher remains responsible for persistence and compatibility with Windows updates.
+BioPager verifies the shell-reported location. On failure it restores the prior registry value and requests the prior location; it reports if restoration cannot be confirmed. Concurrent setting changes are preserved. Disable automatic taskbar hiding before using Top. Windows may apply this setting to all displayed taskbars; it is not a per-monitor feature.
 
-**BioPager position within taskbar...** moves the pager within the taskbar; it is distinct from moving the Windows taskbar itself.
+**BioPager position within taskbar...** moves the pager within the taskbar, separately from moving the Windows taskbar.
 
 ## Build
 
-The editable source is in `src/`, extracted from the repository's latest 0.4.5 source archive. On Windows x64, run `src/Build.cmd`. The build extracts original assets and native helpers from the tracked 0.4.5 archive automatically. GitHub Actions builds the executable and runs existing regression checks; download its `BioPager-0.4.6-windows-x64` artifact. The root `BioPager.exe` is the previous release until a validated Windows build replaces it.
+On Windows x64, run `src/Build.cmd`. The build extracts original assets and native desktop helpers from the tracked 0.4.5 archive automatically. GitHub Actions compiles the executable and runs the existing unit regression checks. The root BioPager.exe remains the previous release; download the new Actions artifact.
 
-## Validation required on Windows
+## Validation
 
-Verify Top and Bottom with ExplorerPatcher active, persistence after Explorer restart, and BioPager floating/docked/integrated modes. Also check stock Windows 11, absent ExplorerPatcher, secondary monitors, and Explorer restarting: these must fail gracefully without changing the stock taskbar or other monitors. Runtime taskbar positioning cannot be tested on Linux.
+Interactive Windows tests remain required: Top/Bottom with native positioning enabled, unsupported-feature rollback, Start/Search/flyouts, restart persistence, multi-monitor placement, and floating/docked/integrated BioPager modes. Compilation and existing desktop unit checks do not establish taskbar behavior.
 
-## ExplorerPatcher reference
+## Implementation references
 
-Integration was checked against ExplorerPatcher commit `0a88a6e0ef6b1752fea36e581cffff1097e862b0`, `ep_gui/GUI.c`, `GUI_Internal_RegSetValueExW` and `GUI_Internal_RegQueryValueExW`. Its primary position setting uses `Shell_TrayWnd`, message `WM_USER + 0x1CA`, operation 5 (query) and 6 (set), with edge 1 (top) or 3 (bottom). BioPager uses a bounded message timeout and checks the shell-reported edge. This private protocol may change in later ExplorerPatcher releases.
+Microsoft announced native taskbar positioning in https://blogs.windows.com/windows-insider/2026/05/15/improving-windows-quality-making-taskbar-and-start-more-personal/ .
 
-ExplorerPatcher is independently distributed under its own GPL license. No ExplorerPatcher source or binaries are incorporated into BioPager.
+The native setting and message protocol were checked against https://github.com/ramensoftware/windhawk-mods/blob/main/mods/taskbar-on-top.wh.cpp : `Explorer\Advanced\TaskbarLocation` stores the screen edge, and message `0x5CA`, operation 6, asks the shell to apply it. This is a private interface and may change. No Windhawk or ExplorerPatcher source or binaries are incorporated into this feature.

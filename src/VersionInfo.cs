@@ -2,8 +2,8 @@
 using System.Reflection;
 [assembly: AssemblyTitle("BioPager")]
 [assembly: AssemblyDescription("Desktop pager with app dragging, compact titles and Windows appbar docking")]
-[assembly: AssemblyVersion("0.4.6.0")]
-[assembly: AssemblyFileVersion("0.4.6.0")]
+[assembly: AssemblyVersion("0.4.7.0")]
+[assembly: AssemblyFileVersion("0.4.7.0")]
 
 [assembly: AssemblyProduct("BioPager")]
 [assembly: AssemblyCompany("Jong Bhak")]

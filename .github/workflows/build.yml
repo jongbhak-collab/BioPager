@@ -15,5 +15,5 @@ jobs:
         run: BuildTests.cmd --unit
       - uses: actions/upload-artifact@v4
         with:
-          name: BioPager-0.4.6-windows-x64
+          name: BioPager-0.4.7-windows-x64
           path: src/BioPager.exe

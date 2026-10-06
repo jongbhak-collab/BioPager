@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Jong Bhak. Licensed under BioLicense 1.0; see LICENSE.
-// BioPager 0.4.6. Created by Jong Bhak. Inspired by Vern by One Guy Coding.
+// BioPager 0.4.7. Created by Jong Bhak. Inspired by Vern by One Guy Coding.
 // Build with the .NET Framework C# compiler shipped with Windows 10/11.
 using System;
 using System.Collections.Generic;
@@ -168,13 +168,13 @@ namespace BioPager {
    embedItem=new ToolStripMenuItem("Integrate with taskbar");embedItem.Checked=embedded;embedItem.CheckOnClick=true;
    embedItem.CheckedChanged+=delegate {SetEmbedded(embedItem.Checked);};menu.Items.Add(embedItem);
    menu.Items.Add("BioPager position within taskbar...",null,delegate {ConfigureEmbedOffset();});
-   ToolStripMenuItem taskbarLocation=new ToolStripMenuItem("Windows taskbar location (primary monitor)");
+   ToolStripMenuItem taskbarLocation=new ToolStripMenuItem("Windows taskbar location");
    ToolStripMenuItem topTaskbar=new ToolStripMenuItem("Top");
    ToolStripMenuItem bottomTaskbar=new ToolStripMenuItem("Bottom");
    topTaskbar.Click+=async delegate {taskbarLocation.Enabled=false;try{await TaskbarPosition.SetAsync(this,true);LayoutBar();}finally{taskbarLocation.Enabled=true;}};
    bottomTaskbar.Click+=async delegate {taskbarLocation.Enabled=false;try{await TaskbarPosition.SetAsync(this,false);LayoutBar();}finally{taskbarLocation.Enabled=true;}};
    taskbarLocation.DropDownItems.Add(topTaskbar);taskbarLocation.DropDownItems.Add(bottomTaskbar);
-   taskbarLocation.DropDownItems.Add("ExplorerPatcher releases...",null,delegate {Process.Start("https://github.com/valinet/ExplorerPatcher/releases");});
+   taskbarLocation.DropDownItems.Add("Windows taskbar settings...",null,delegate {Process.Start("ms-settings:taskbar");});
    menu.Items.Add(taskbarLocation);
    dockItem=new ToolStripMenuItem("Dock beside taskbar (reserve screen space)");dockItem.Checked=docked;dockItem.CheckOnClick=true;
    dockItem.CheckedChanged+=delegate {SetDocked(dockItem.Checked);};menu.Items.Add(dockItem);
@@ -219,7 +219,7 @@ namespace BioPager {
     TextBox help=new TextBox();help.Dock=DockStyle.Fill;help.Multiline=true;
     help.ReadOnly=true;help.ScrollBars=ScrollBars.Vertical;help.BorderStyle=BorderStyle.None;
     help.BackColor=SystemColors.Control;help.ForeColor=SystemColors.ControlText;
-    help.Text="BioPager 0.4.6\nCreated by Jong Bhak\nBioLicense: free for all, including companies and AIs.\n\nInspired by Vern, created by One Guy Coding.\nIndependent implementation; no Vern code or assets used.\nDesktop API: VirtualDesktopAccessor by Jari Pennanen (MIT).\n\nWindows taskbar location: right-click > Windows taskbar location (primary monitor) > Top or Bottom. Requires an active compatible ExplorerPatcher taskbar. Secondary monitors are unchanged.\n\nBackground color: right-click > Background color...\n\nClick a tile: direct desktop switch without the pager's transition animation. Double-click an app: focus it. Drag an app to another tile: move that window silently. Escape cancels dragging.\n\nShow desktop titles: hide/show headers. Icon grid: reach overlapping apps.\n\nIntegrate with taskbar: show a compact always-on-top pager within the taskbar area. Drag the left grip horizontally to position it, or use Taskbar position. It can cover taskbar buttons; use Taskbar position to choose a clear area. Turn off integration to return to the floating pager. Double-click the tray icon to recover a floating pager.\n\nDock beside taskbar: a separate reserved appbar, now following the top/bottom taskbar position.\n\nVersion-specific desktop APIs support Windows 11 21H2 through 25H2. Unrecognized builds use Windows shortcuts for switching and creating desktops; app dragging and removal require Win+Tab there. Windows keyboard shortcuts may still animate; global animation settings are not changed.".Replace("\n",Environment.NewLine);
+    help.Text="BioPager 0.4.7\nCreated by Jong Bhak\nBioLicense: free for all, including companies and AIs.\n\nInspired by Vern, created by One Guy Coding.\nIndependent implementation; no Vern code or assets used.\nDesktop API: VirtualDesktopAccessor by Jari Pennanen (MIT).\n\nWindows taskbar location: right-click > Windows taskbar location > Top or Bottom. Uses native Windows taskbar positioning where available. No ExplorerPatcher installation needed. Windows may apply the location to all taskbars.\n\nBackground color: right-click > Background color...\n\nClick a tile: direct desktop switch without the pager's transition animation. Double-click an app: focus it. Drag an app to another tile: move that window silently. Escape cancels dragging.\n\nShow desktop titles: hide/show headers. Icon grid: reach overlapping apps.\n\nIntegrate with taskbar: show a compact always-on-top pager within the taskbar area. Drag the left grip horizontally to position it, or use Taskbar position. It can cover taskbar buttons; use Taskbar position to choose a clear area. Turn off integration to return to the floating pager. Double-click the tray icon to recover a floating pager.\n\nDock beside taskbar: a separate reserved appbar, now following the top/bottom taskbar position.\n\nVersion-specific desktop APIs support Windows 11 21H2 through 25H2. Unrecognized builds use Windows shortcuts for switching and creating desktops; app dragging and removal require Win+Tab there. Windows keyboard shortcuts may still animate; global animation settings are not changed.".Replace("\n",Environment.NewLine);
     Button close=new Button();close.Text="Close";close.AutoSize=true;
     close.Anchor=AnchorStyles.Right|AnchorStyles.Bottom;close.DialogResult=DialogResult.OK;
     layout.Controls.Add(picture,0,0);layout.Controls.Add(help,0,1);layout.Controls.Add(close,0,2);
