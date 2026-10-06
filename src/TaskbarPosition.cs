@@ -40,6 +40,10 @@ namespace BioPager {
   }
 
   internal static async Task SetAsync(IWin32Window owner,bool top) {
+   if(MessageBox.Show(owner,
+    "Some Windows 11 releases may not support changing the taskbar location.\n\nIf this option does not work on your Windows release, please install and use ExplorerPatcher independently to change the taskbar location. BioPager does not install or manage ExplorerPatcher.\n\nClick OK to try changing the location with BioPager, or Cancel to leave it unchanged.",
+    "Taskbar location compatibility warning",MessageBoxButtons.OKCancel,MessageBoxIcon.Warning,
+    MessageBoxDefaultButton.Button2)!=DialogResult.OK)return;
    try {
     IntPtr tray=Native.FindWindow("Shell_TrayWnd",null);
     int before=ReadEdge(),edge=top?1:3;
@@ -84,7 +88,7 @@ namespace BioPager {
      if(!committed)throw new InvalidOperationException("Windows did not support the requested position. The previous setting was restored.\n\nCheck Settings > Personalization > Taskbar > Taskbar behaviors for Taskbar position. If that option is missing, your Windows build or feature rollout does not yet support native positioning. BioPager cannot add that shell feature with a simple setting change.");
     }
    } catch(Exception ex) {
-    MessageBox.Show(owner,ex.Message,"Windows taskbar location",MessageBoxButtons.OK,MessageBoxIcon.Information);
+    MessageBox.Show(owner,ex.Message+"\n\nIf your Windows 11 release does not support this option, please install and use ExplorerPatcher independently to change the taskbar location.","Windows taskbar location",MessageBoxButtons.OK,MessageBoxIcon.Information);
    }
   }
  }

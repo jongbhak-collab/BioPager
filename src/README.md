@@ -2,9 +2,9 @@
 
 Created by Jong Bhak. BioLicense: free for all, including companies and AIs.
 
-## Native taskbar Top / Bottom (0.4.7)
+## Native taskbar Top / Bottom (0.4.8)
 
-Right-click BioPager or its tray icon, select **Windows taskbar location**, then **Top** or **Bottom**. No ExplorerPatcher or Windhawk installation is required.
+Right-click BioPager or its tray icon, select **Windows taskbar location**, then **Top** or **Bottom**. No ExplorerPatcher or Windhawk installation is required. Before any change, BioPager warns that some Windows 11 releases may not support it and recommends installing and using ExplorerPatcher independently if needed. Choose OK to try or Cancel to leave settings unchanged.
 
 This implementation uses Windows' native taskbar location setting and shell notification. **Your Windows installation must have native taskbar positioning available and enabled by Microsoft's rollout.** Check Settings > Personalization > Taskbar > Taskbar behaviors for Taskbar position. Older Windows 11 installations without the feature cannot acquire it through a simple setting change. BioPager does not add Explorer hooks or replace the taskbar.
 
