@@ -22,6 +22,6 @@ Verify Top and Bottom with ExplorerPatcher active, persistence after Explorer re
 
 ## ExplorerPatcher reference
 
-Integration was checked against ExplorerPatcher commit `0a88a6e0ef6b1752fea36e581cffff1097e862b0`, `ep_gui/GUI.c`, `GUI_Internal_RegSetValueExW` and `GUI_Internal_RegQueryValueExW`. Its primary position setting uses `Shell_TrayWnd`, message `WM_USER + 0x1CA`, operation 5 (query) and 6 (set), with edge 1 (top) or 3 (bottom). BioPager uses a bounded message timeout and checks the shell-reported edge. This private protocol may change in later ExplorerPatcher releases.
+Integration was checked against ExplorerPatcher `ep_gui/GUI.c`, `GUI_Internal_RegSetValueExW` and `GUI_Internal_RegQueryValueExW`. Its primary position setting uses `Shell_TrayWnd`, message `WM_USER + 0x1CA`, operation 5 (query) and 6 (set), with edge 1 (top) or 3 (bottom). BioPager uses a bounded message timeout and checks the shell-reported edge. This private protocol may change in later ExplorerPatcher releases.
 
 ExplorerPatcher is independently distributed under its own GPL license. No ExplorerPatcher source or binaries are incorporated into BioPager.
