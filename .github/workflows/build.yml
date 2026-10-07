@@ -1,0 +1,19 @@
+name: Build BioPager
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile portable executable
+        shell: cmd
+        working-directory: src
+        run: Build.cmd
+      - name: Run existing regression checks
+        shell: cmd
+        working-directory: src
+        run: BuildTests.cmd --unit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BioPager-0.4.9-windows-x64
+          path: src/BioPager.exe

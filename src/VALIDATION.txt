@@ -1,0 +1,55 @@
+BioPager 0.4.3 validation — 2026-10-01
+
+Build: Windows x64 .NET Framework compiler, warnings treated as errors.
+Host: Windows 11 build 26200.9550.
+
+PASS: taskbar integration creates a visible compact top-level overlay intersecting actual taskbar bounds.
+PASS: integration off restores a visible floating pager.
+PASS: topmost is enabled by default.
+PASS: pager returns above an overlapping topmost window in a separate process.
+PASS: fullscreen appbar notification keeps topmost ordering.
+PASS: integrated preview renders tiles; right-click menu exposes integration and named removal destination.
+PASS: first-use setup adds five desktops to a simulated one-desktop profile.
+PASS: setup is idempotent and preserves an existing layout larger than six.
+PASS: failed initial setup remains pending after settings are saved; completion suppresses future setup.
+PASS: existing installations skip first-use creation.
+PASS: final remaining desktop is protected; stale/non-next destination is rejected.
+PASS: simulated Windows refusal does not report success.
+PASS: actual native creation of two temporary desktops.
+PASS: removal of the temporary source leaves its test window open on the next desktop.
+PASS: removal of the last temporary desktop wraps to the first.
+PASS: original desktop count and GUIDs restored after native testing.
+PASS: final production EXE alone runs its native worker from an arbitrary Unicode/spaces directory with C:\Windows as working directory.
+PASS: final production worker unloads/removes extracted payload on EOF.
+PASS: installed Startup EXE version 0.4.3 starts and loads the embedded DLL; user's ten desktops remain intact.
+
+UI ordering tests use the same Pager class with an isolated settings directory.
+Six-desktop creation below six was tested with controlled delegates; the live
+Windows account already had ten desktops, which were intentionally preserved.
+Not tested: other Windows build families, secondary/vertical/autohide taskbar
+configurations on physical systems, arbitrary elevated/protected third-party apps,
+and exclusive fullscreen/secure-desktop ordering.
+
+Icon update validation — 2026-10-03, BioPager 0.4.4
+PASS: nine ICO resolutions; alpha transparency; visual inspection at 16–128 px on light/dark taskbars.
+PASS: Windows ExtractAssociatedIcon retrieves red/yellow/blue branding from compiled EXE.
+PASS: managed BioPager.App.ico resource present for the tray/window.
+PASS: compiler succeeds with warnings treated as errors.
+PASS: installed Startup EXE starts and creates its native worker after icon integration.
+No desktop-operation logic changed in 0.4.4; 0.4.3 test results above are retained as prior validation.
+
+Compatibility release — 2026-10-05, BioPager 0.4.5
+PASS: warnings-as-errors production and test builds.
+PASS: backend selection boundaries for 21H2/22H2/23H2/24H2/25H2 and unknown builds.
+PASS: every embedded native variant extracted, hash-verified and cleaned up.
+PASS: fallback ordered switching, absent targets, creation restoration, six-desk
+setup, modifier/input refusal, concurrent layout change and cancellation tests.
+PASS: real Windows keyboard fallback creation restores original desktop;
+switching to the temporary desk and back succeeds; test desk safely removed.
+PASS: native app migration, wraparound removal, original desktop restoration,
+taskbar overlay, topmost rivalry and fullscreen ordering regression suite.
+PASS: production BioPager.exe alone in a folder with spaces, started with TEMP
+as working directory, initializes its worker (ping 0) and exits cleanly.
+Host remains Windows 11 x64 26200.9550. Other build families and ARM64 were not
+available for live testing; see COMPATIBILITY.md for explicit scope and fallback
+limits. This release does not claim universal support for future/Insider APIs.
