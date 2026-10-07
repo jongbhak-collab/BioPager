@@ -563,8 +563,8 @@ namespace BioPager {
       ackDesktop=target;ackUntil=DateTime.UtcNow.AddMilliseconds(300);current=target;statusUntil=DateTime.MinValue;FollowDesktop();Invalidate();
      }
      if(window!=IntPtr.Zero&&Native.IsWindow(window)){if(Native.IsIconic(window))Native.ShowWindowAsync(window,9);Native.SetForegroundWindow(window);}
+     await Task.Delay(200); // Finish the shell switch before restoring effects or processing another click.
     }
-    await Task.Delay(200); // Keep effects disabled until the shell finishes the switch.
    }catch(Exception ex){if(!IsDisposed)SetStatus("Switch unavailable: "+ex.Message);}finally{if(animation!=null)animation.Dispose();switchPumping=false;busy=false;}
   }
   async Task InitializeDesktops(){
