@@ -2,7 +2,7 @@
 
 Created by Jong Bhak. BioLicense: free for all, including companies and AIs.
 
-## Native taskbar Top / Bottom (0.4.8)
+## Native taskbar Top / Bottom (0.4.9)
 
 Right-click BioPager or its tray icon, select **Windows taskbar location**, then **Top** or **Bottom**. No ExplorerPatcher or Windhawk installation is required. Before any change, BioPager warns that some Windows 11 releases may not support it and recommends installing and using ExplorerPatcher independently if needed. Choose OK to try or Cancel to leave settings unchanged.
 
@@ -25,3 +25,7 @@ Interactive Windows tests remain required: Top/Bottom with native positioning en
 Microsoft announced native taskbar positioning in https://blogs.windows.com/windows-insider/2026/05/15/improving-windows-quality-making-taskbar-and-start-more-personal/ .
 
 The native setting and message protocol were checked against https://github.com/ramensoftware/windhawk-mods/blob/main/mods/taskbar-on-top.wh.cpp : `Explorer\Advanced\TaskbarLocation` stores the screen edge, and message `0x5CA`, operation 6, asks the shell to apply it. This is a private interface and may change. No Windhawk or ExplorerPatcher source or binaries are incorporated into this feature.
+
+## Instant desktop switching (0.4.9)
+
+BioPager temporarily disables Windows client-area animation effects around desktop tile switches, including keyboard fallback, and restores the prior session setting afterward. The saved Windows preference is not changed. Other applications may briefly observe effects being disabled during a switch. If BioPager is forcibly terminated mid-switch, effects may stay disabled for that session; re-enable Animation effects in Windows Accessibility > Visual effects. Visual transition behavior still requires verification on Windows.

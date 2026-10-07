@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Jong Bhak. Licensed under BioLicense 1.0; see LICENSE.
-// BioPager 0.4.8. Created by Jong Bhak. Inspired by Vern by One Guy Coding.
+// BioPager 0.4.9. Created by Jong Bhak. Inspired by Vern by One Guy Coding.
 // Build with the .NET Framework C# compiler shipped with Windows 10/11.
 using System;
 using System.Collections.Generic;
@@ -219,7 +219,7 @@ namespace BioPager {
     TextBox help=new TextBox();help.Dock=DockStyle.Fill;help.Multiline=true;
     help.ReadOnly=true;help.ScrollBars=ScrollBars.Vertical;help.BorderStyle=BorderStyle.None;
     help.BackColor=SystemColors.Control;help.ForeColor=SystemColors.ControlText;
-    help.Text="BioPager 0.4.8\nCreated by Jong Bhak\nBioLicense: free for all, including companies and AIs.\n\nInspired by Vern, created by One Guy Coding.\nIndependent implementation; no Vern code or assets used.\nDesktop API: VirtualDesktopAccessor by Jari Pennanen (MIT).\n\nWindows taskbar location: right-click > Windows taskbar location > Top or Bottom. Uses native Windows taskbar positioning where available. No ExplorerPatcher installation needed. Windows may apply the location to all taskbars.\n\nBackground color: right-click > Background color...\n\nClick a tile: direct desktop switch without the pager's transition animation. Double-click an app: focus it. Drag an app to another tile: move that window silently. Escape cancels dragging.\n\nShow desktop titles: hide/show headers. Icon grid: reach overlapping apps.\n\nIntegrate with taskbar: show a compact always-on-top pager within the taskbar area. Drag the left grip horizontally to position it, or use Taskbar position. It can cover taskbar buttons; use Taskbar position to choose a clear area. Turn off integration to return to the floating pager. Double-click the tray icon to recover a floating pager.\n\nDock beside taskbar: a separate reserved appbar, now following the top/bottom taskbar position.\n\nVersion-specific desktop APIs support Windows 11 21H2 through 25H2. Unrecognized builds use Windows shortcuts for switching and creating desktops; app dragging and removal require Win+Tab there. Windows keyboard shortcuts may still animate; global animation settings are not changed.".Replace("\n",Environment.NewLine);
+    help.Text="BioPager 0.4.9\nCreated by Jong Bhak\nBioLicense: free for all, including companies and AIs.\n\nInspired by Vern, created by One Guy Coding.\nIndependent implementation; no Vern code or assets used.\nDesktop API: VirtualDesktopAccessor by Jari Pennanen (MIT).\n\nWindows taskbar location: right-click > Windows taskbar location > Top or Bottom. Uses native Windows taskbar positioning where available. No ExplorerPatcher installation needed. Windows may apply the location to all taskbars.\n\nBackground color: right-click > Background color...\n\nClick a tile: direct desktop switch without the pager's transition animation. Double-click an app: focus it. Drag an app to another tile: move that window silently. Escape cancels dragging.\n\nShow desktop titles: hide/show headers. Icon grid: reach overlapping apps.\n\nIntegrate with taskbar: show a compact always-on-top pager within the taskbar area. Drag the left grip horizontally to position it, or use Taskbar position. It can cover taskbar buttons; use Taskbar position to choose a clear area. Turn off integration to return to the floating pager. Double-click the tray icon to recover a floating pager.\n\nDock beside taskbar: a separate reserved appbar, now following the top/bottom taskbar position.\n\nVersion-specific desktop APIs support Windows 11 21H2 through 25H2. Unrecognized builds use Windows shortcuts for switching and creating desktops; app dragging and removal require Win+Tab there. During desktop switches, Windows animation effects are temporarily disabled and then restored. The saved Windows preference is not changed.".Replace("\n",Environment.NewLine);
     Button close=new Button();close.Text="Close";close.AutoSize=true;
     close.Anchor=AnchorStyles.Right|AnchorStyles.Bottom;close.DialogResult=DialogResult.OK;
     layout.Controls.Add(picture,0,0);layout.Controls.Add(help,0,1);layout.Controls.Add(close,0,2);
@@ -549,7 +549,10 @@ namespace BioPager {
    if(switchPumping)return;
    if(busy){pendingSwitch=Guid.Empty;return;}
    switchPumping=true;busy=true;
+   DesktopAnimation animation=null;
    try{
+    animation=new DesktopAnimation();
+    await Task.Delay(50);
     while(pendingSwitch!=Guid.Empty&&!IsDisposed){
      Guid target=pendingSwitch;IntPtr window=pendingFocus;pendingSwitch=Guid.Empty;
      if(CurrentDesktop()!=target){
@@ -561,7 +564,8 @@ namespace BioPager {
      }
      if(window!=IntPtr.Zero&&Native.IsWindow(window)){if(Native.IsIconic(window))Native.ShowWindowAsync(window,9);Native.SetForegroundWindow(window);}
     }
-   }catch(Exception ex){if(!IsDisposed)SetStatus("Switch unavailable: "+ex.Message);}finally{switchPumping=false;busy=false;}
+    await Task.Delay(200); // Keep effects disabled until the shell finishes the switch.
+   }catch(Exception ex){if(!IsDisposed)SetStatus("Switch unavailable: "+ex.Message);}finally{if(animation!=null)animation.Dispose();switchPumping=false;busy=false;}
   }
   async Task InitializeDesktops(){
    if(profileSetup==null||!profileSetup.Pending)return;
