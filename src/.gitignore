@@ -1,0 +1,14 @@
+# Generated local build artifacts (attach complete ZIPs to GitHub Releases)
+/BioPager.exe
+/BioPager.new.exe
+/build.log
+/SHA256SUMS.json
+*.pdb
+*.zip
+.vs/
+bin/
+obj/
+/BioPagerTests.exe
+/test-profile/
+assets/
+native/

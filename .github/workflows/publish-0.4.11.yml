@@ -1,0 +1,42 @@
+name: Publish BioPager 0.4.11
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-0.4.11.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        shell: cmd
+        working-directory: src
+        run: Build.cmd
+      - name: Test
+        shell: cmd
+        working-directory: src
+        run: BuildTests.cmd --unit
+      - name: Publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ((Get-Item src/BioPager.exe).VersionInfo.FileVersion -ne '0.4.11.0') { throw 'Wrong version' }
+          Copy-Item src/BioPager.exe BioPager.exe -Force
+          $package = Join-Path $env:RUNNER_TEMP 'BioPager-source'
+          New-Item -ItemType Directory -Path $package | Out-Null
+          Get-ChildItem src -Force | Where-Object { $_.Name -notin @('BioPagerTests.exe','BioPager.new.exe','build.log') } | Copy-Item -Destination $package -Recurse -Force
+          Compress-Archive -Path "$package/*" -DestinationPath BioPager-v0.4.11-source.zip -Force
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f BioPager.exe BioPager-v0.4.11-source.zip
+          git commit -m "Publish BioPager 0.4.11 executable and source archive [skip ci]"
+          if ($LASTEXITCODE -ne 0) { throw 'Commit failed' }
+          git push origin HEAD:main
+          if ($LASTEXITCODE -ne 0) { throw 'Push failed' }
+          gh release create v0.4.11 BioPager.exe BioPager-v0.4.11-source.zip --target main --title "BioPager 0.4.11" --notes "Fixes keyboard focus on the frontmost app after desktop switches. Preserves 0.4.10 compatibility changes. Windows build and regression checks passed. Interactive Telegram keyboard focus testing remains required."
+          if ($LASTEXITCODE -ne 0) { throw 'Release failed' }
