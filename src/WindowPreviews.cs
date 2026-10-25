@@ -26,6 +26,7 @@ namespace BioPager {
 
   sealed class Entry {
    internal IntPtr Window,Thumbnail;
+   internal readonly List<IntPtr> Pieces=new List<IntPtr>();
    internal uint Process;
    internal string Class;
    internal Bitmap Frame;
@@ -60,7 +61,7 @@ namespace BioPager {
   internal static int ThumbnailPropertiesSize {get{return Marshal.SizeOf(typeof(ThumbnailProperties));}}
   internal int EntryCount {get{return entries.Count;}}
   internal int RegistrationCount {
-   get{int count=0;foreach(Entry entry in entries.Values)if(entry.Thumbnail!=IntPtr.Zero)count++;return count;}
+   get{int count=0;foreach(Entry entry in entries.Values){if(entry.Thumbnail!=IntPtr.Zero)count++;count+=entry.Pieces.Count;}return count;}
   }
   internal int CachedFrameCount {
    get{int count=0;foreach(Entry entry in entries.Values)if(entry.Frame!=null)count++;return count;}
@@ -79,11 +80,17 @@ namespace BioPager {
   // True means a DWM relationship was configured, not that fresh pixels were
   // observed. Windows may retain an older surface for a minimized/hidden app.
   internal bool Show(IntPtr window,uint process,string className,Rectangle target,bool minimized,int cloak) {
+   return Show(window,process,className,target,minimized,cloak,null);
+  }
+  // Pieces are disjoint destination rectangles with explicit source crops. DWM
+  // is composed above GDI, so its own destination must exclude every front app.
+  internal bool Show(IntPtr window,uint process,string className,Rectangle target,bool minimized,int cloak,List<Rectangle> pieces) {
    if(disposed)return false;
    Entry entry=FindOrCreate(window,process,className);
    if(entry==null)return false;
    entry.Seen=true;
    if(!AllowContent(entry)){Unregister(entry);return false;}
+   if(pieces!=null&&pieces.Count==0){Unregister(entry);return false;}
    if((minimized||cloak!=0)&&entry.Frame!=null){Unregister(entry);return false;}
    if(destination==IntPtr.Zero||!Native.IsWindow(destination)||target.Width<2||target.Height<2||(cloak&1)!=0) {
     Unregister(entry);return false;
@@ -103,10 +110,27 @@ namespace BioPager {
      Failed(entry);return false;
     }
     Native.RECT client;
-    if(!minimized&&Native.GetClientRect(window,out client)&&client.R>client.L&&client.B>client.T) {
+    if(pieces==null&&!minimized&&Native.GetClientRect(window,out client)&&client.R>client.L&&client.B>client.T) {
      size.Width=client.R-client.L;size.Height=client.B-client.T;
     }
-    Rectangle fitted=Fit(new Size(size.Width,size.Height),target);
+    Rectangle fitted=pieces==null?Fit(new Size(size.Width,size.Height),target):target;
+    if(pieces!=null) {
+     ThumbnailProperties hidden=new ThumbnailProperties();hidden.Flags=TnpVisible;hidden.Visible=false;
+     if(DwmUpdateThumbnailProperties(entry.Thumbnail,ref hidden)!=0){Failed(entry);return false;}
+     entry.Visible=false;
+     while(entry.Pieces.Count>pieces.Count){int last=entry.Pieces.Count-1;DwmUnregisterThumbnail(entry.Pieces[last]);entry.Pieces.RemoveAt(last);}
+     for(int i=0;i<pieces.Count;i++) {
+      if(i>=entry.Pieces.Count){IntPtr part;if(DwmRegisterThumbnail(destination,window,out part)!=0||part==IntPtr.Zero){Failed(entry);return false;}entry.Pieces.Add(part);}
+      Rectangle crop=SpatialLayout.SourceCrop(pieces[i],target,new Size(size.Width,size.Height));
+      ThumbnailProperties fragment=new ThumbnailProperties();
+      fragment.Flags=TnpDestination|2|TnpOpacity|TnpVisible|TnpClientOnly;
+      fragment.Destination=ToNative(pieces[i]);fragment.Source=ToNative(crop);
+      fragment.Opacity=255;fragment.Visible=true;fragment.ClientOnly=false;
+      if(DwmUpdateThumbnailProperties(entry.Pieces[i],ref fragment)!=0){Failed(entry);return false;}
+     }
+     entry.LiveSeen=true;return true;
+    }
+    ClearPieces(entry);
     if(fitted.Width<2||fitted.Height<2){Unregister(entry);return false;}
     if(!entry.Visible||entry.Target!=fitted) {
      ThumbnailProperties properties=new ThumbnailProperties();
@@ -317,7 +341,10 @@ namespace BioPager {
    }
   }
   static void Failed(Entry entry) {Unregister(entry);entry.RetryAfter=DateTime.UtcNow.AddSeconds(3);}
+  static Native.RECT ToNative(Rectangle r){return new Native.RECT{L=r.Left,T=r.Top,R=r.Right,B=r.Bottom};}
+  static void ClearPieces(Entry entry){foreach(IntPtr part in entry.Pieces)try{DwmUnregisterThumbnail(part);}catch{}entry.Pieces.Clear();}
   static void Unregister(Entry entry) {
+   ClearPieces(entry);
    IntPtr thumbnail=entry.Thumbnail;entry.Thumbnail=IntPtr.Zero;entry.Visible=false;entry.Target=Rectangle.Empty;
    if(thumbnail!=IntPtr.Zero)try{DwmUnregisterThumbnail(thumbnail);}catch{}
   }

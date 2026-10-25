@@ -26,6 +26,7 @@ namespace BioPager {
   bool disposed;
   internal string Diagnostics { get; private set; }
 
+  [DllImport("user32.dll")] static extern IntPtr GetTopWindow(IntPtr window);
   [DllImport("user32.dll")] static extern IntPtr GetAncestor(IntPtr window,uint flags);
   [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr OpenProcess(uint access,bool inherit,uint process);
   [DllImport("kernel32.dll",SetLastError=true)] static extern bool CloseHandle(IntPtr handle);
@@ -161,7 +162,16 @@ namespace BioPager {
    if(diagnosticLines>MaxDiagnosticLines)diagnostics.AppendLine("Additional diagnostic rows omitted.");
    diagnostics.AppendLine("Included applications: "+result.Count);
    Diagnostics=diagnostics.ToString();
-   return result;
+   OrderFrontToBack(result);return result;
+  }
+
+  // Do not depend on EnumWindows callback ordering. Snapshot the actual
+  // top-level Z chain; the pager reverses this for back-to-front painting.
+  internal static void OrderFrontToBack(List<WindowInfo> windows) {
+   Dictionary<IntPtr,int> rank=new Dictionary<IntPtr,int>();IntPtr h=GetTopWindow(IntPtr.Zero);
+   for(int i=0;h!=IntPtr.Zero&&i<4096;i++){if(rank.ContainsKey(h))break;rank.Add(h,i);h=Native.GetWindow(h,2);}
+   Dictionary<IntPtr,int> original=new Dictionary<IntPtr,int>();for(int i=0;i<windows.Count;i++)original[windows[i].Handle]=i;
+   windows.Sort(delegate(WindowInfo a,WindowInfo b){int ar,br;if(!rank.TryGetValue(a.Handle,out ar))ar=4096+original[a.Handle];if(!rank.TryGetValue(b.Handle,out br))br=4096+original[b.Handle];return ar.CompareTo(br);});
   }
 
   static int GetDesktop(IDesktopManager manager,IntPtr handle,out Guid desktop) {
