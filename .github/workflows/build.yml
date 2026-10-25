@@ -1,19 +1,34 @@
 name: Build BioPager
 on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
 jobs:
   windows:
     runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Compile portable executable
         shell: cmd
         working-directory: src
         run: Build.cmd
-      - name: Run existing regression checks
+      - name: Run regression and window-selection checks
         shell: cmd
         working-directory: src
         run: BuildTests.cmd --unit
+      - name: Check real Windows app windows and live preview pixels
+        shell: cmd
+        working-directory: src
+        env:
+          BIOPAGER_TEST_ARTIFACTS: ${{ github.workspace }}\preview-evidence
+        run: BioPagerTests.exe --window-tests
       - uses: actions/upload-artifact@v4
         with:
-          name: BioPager-0.4.11-windows-x64
+          name: BioPager-0.4.12-windows-x64
           path: src/BioPager.exe
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: BioPager-0.4.12-preview-evidence
+          path: preview-evidence
+          if-no-files-found: ignore
