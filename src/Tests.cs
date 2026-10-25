@@ -21,6 +21,7 @@ namespace BioPager {
   static object Call(string method,params object[] args){return typeof(MoveWorker).GetMethod(method,BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,args);}
   static void Check(bool value,string message){if(!value)throw new Exception(message);Console.WriteLine("PASS: "+message);}
   static void Unit(){
+   PreviewTests.Unit();
    Check(WindowsCompatibility.Candidates().Length==5&&WindowsCompatibility.Candidates()[0]=="modern","adapter candidates are independent of Windows build numbers");
    Check(!WindowsCompatibility.IsBackend("unexpected")&&WindowsCompatibility.IsBackend("legacy21"),"only embedded known adapters may be probed");
    Check(!DesktopFallback.CanFallback(28)&&!DesktopFallback.CanFallback(22),"unconfirmed mutations and bad payloads are not retried via shortcuts");
@@ -186,6 +187,7 @@ namespace BioPager {
     Unit();FallbackTests().GetAwaiter().GetResult();ProbeTests().GetAwaiter().GetResult();
     if(args.Length>0&&args[0]=="--unit")return 0;
     Native.SetProcessDPIAware();Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
+    if(args.Length>0&&args[0]=="--window-tests")return PreviewTests.RunWindows();
     if(args.Length>0&&args[0]=="--preview"){
      string profile=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"test-profile","settings.txt");
      Pager pager=new Pager(profile);pager.Text="BioPager 0.4.3 preview";

@@ -1,6 +1,49 @@
-# BioPager 0.4.11
+# BioPager 0.4.12
 
 Created by Jong Bhak. BioLicense: free for all, including companies and AIs.
+
+## Actual app and browser previews (0.4.12)
+
+BioPager now shows the contents of application windows. Chrome and other browser
+windows show their active page; switching a tab updates the live preview. Separate
+browser windows have separate previews. Background tabs are not separate desktop
+windows.
+
+The upgrade enables **Show actual app and browser previews** and **Arrange app
+previews in a grid (show every app)**. Existing position, taskbar integration,
+background color, and desktop-title preferences are retained. The grid makes
+windows individually reachable. Turn off the grid for the previous spatial
+arrangement, which uses cached pictures and icons to preserve overlap order.
+
+Visible application windows with hidden owners or explicit application-window
+styles are included. Untitled windows get a process-name label. Missing icons are
+retried and have window-class/executable fallbacks. If Windows cannot identify an
+application's virtual desktop, it remains visible in **Other apps**; click to
+focus it. Dragging is enabled once its desktop is known.
+
+Live previews use Windows DWM. A small in-memory cache samples the unobscured
+foreground app at most once a second for use when it is minimized or on another
+desktop. It does not activate, restore, or move windows to capture them. Sampling
+is skipped if another window obscures the app, geometry changes, or Windows
+reports capture protection. No sampled image is written to disk or uploaded.
+The cache is limited to 64 images of at most 320 by 180 pixels. Unavailable
+previews retain a recognizable icon or colored name label, never an unlabeled
+grey placeholder. Protected and secure-desktop contents cannot be promised as
+previews; a minimized/background window may show its last view rather than new
+content.
+
+**Copy window diagnostics** copies the latest inclusion/exclusion report to the
+local clipboard only when requested. The report contains window titles, so review
+it before sharing it.
+
+The Windows workflow compiles with warnings as errors, runs existing regression
+checks plus app-selection tests, and checks real DWM thumbnail pixels using
+synthetic windows. The live-pixel check explicitly reports a skip when no usable
+interactive compositor is available. Actual MobaXterm, Gemini, and Chrome behavior
+still requires verification on the target Windows desktop.
+
+Exit the running BioPager before replacing `BioPager.exe`. The executable remains
+portable and includes the native desktop helpers.
 
 ## Native taskbar Top / Bottom (0.4.9)
 
