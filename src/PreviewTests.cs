@@ -2,10 +2,12 @@
 // These checks use synthetic windows only; no real application is captured.
 using System;
 using System.Collections.Generic;
+using System.Collections;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -15,6 +17,8 @@ namespace BioPager {
  internal static class PreviewTests {
   const int AppWindow=0x40000,ToolWindow=0x80,NoActivate=0x08000000,Child=0x40000000;
   [DllImport("dwmapi.dll")] static extern int DwmIsCompositionEnabled([MarshalAs(UnmanagedType.Bool)] out bool enabled);
+
+  [DllImport("user32.dll")] static extern bool SetWindowDisplayAffinity(IntPtr window,uint affinity);
 
   sealed class FixtureForm : Form {
    internal int AddExtended,RemoveExtended;
@@ -51,6 +55,29 @@ namespace BioPager {
    return WindowCatalog.ExclusionReason(true,style,extended,owned,ownerVisible,sameProcess,cloak,cls)==null;
   }
   internal static void Unit() {
+   Rectangle body=new Rectangle(0,0,300,100),screens=new Rectangle(-1920,-200,5760,1920);
+   Rectangle mapped=SpatialLayout.Map(screens,screens,body);
+   Check(mapped==new Rectangle(0,0,300,100),"spatial mapping preserves negative multi-monitor origin and aspect ratio");
+   Rectangle off=SpatialLayout.Map(new Rectangle(-2200,-200,1920,1920),screens,body);
+   Check(off.Left<0&&off.Width==100,"off-screen windows retain original size before clipping");
+   Rectangle rear=new Rectangle(0,0,100,100),front=new Rectangle(25,25,50,50);
+   List<Rectangle> parts=SpatialLayout.Uncovered(rear,rear,new[]{front});
+   int area=0;bool safe=true;
+   for(int i=0;i<parts.Count;i++){area+=parts[i].Width*parts[i].Height;if(parts[i].IntersectsWith(front))safe=false;for(int j=i+1;j<parts.Count;j++)if(parts[i].IntersectsWith(parts[j]))safe=false;}
+   Check(parts.Count==4&&area==7500&&safe,"center foreground leaves exactly four disjoint uncovered rear fragments");
+   Check(SpatialLayout.Uncovered(rear,rear,new[]{rear}).Count==0,"fully covered rear window has no live destination or hit region");
+   Check(SpatialLayout.SourceCrop(new Rectangle(50,0,50,100),rear,new Size(240,160))==new Rectangle(120,0,120,160),"DWM source crop preserves the rear image position instead of squeezing it");
+   using(Bitmap image=new Bitmap(100,100))using(Graphics g=Graphics.FromImage(image)) {
+    g.Clear(Color.Magenta);foreach(Rectangle part in parts)g.FillRectangle(Brushes.Blue,part);
+    Check(image.GetPixel(50,50).ToArgb()==Color.Magenta.ToArgb()&&image.GetPixel(10,50).ToArgb()==Color.Blue.ToArgb(),"visual fallback leaves foreground pixels intact");
+   }
+   Random random=new Random(42);bool exact=true;
+   for(int trial=0;trial<100;trial++) {
+    List<Rectangle> covers=new List<Rectangle>();for(int n=0;n<8;n++)covers.Add(new Rectangle(random.Next(-5,20),random.Next(-5,20),random.Next(1,15),random.Next(1,15)));
+    List<Rectangle> cuts=SpatialLayout.Uncovered(new Rectangle(-2,-2,24,24),new Rectangle(0,0,20,20),covers);
+    for(int y=0;y<20;y++)for(int x=0;x<20;x++){Point point=new Point(x,y);bool covered=covers.Exists(delegate(Rectangle r){return r.Contains(point);});int count=0;foreach(Rectangle r in cuts)if(r.Contains(point))count++;if(count!=(covered?0:1))exact=false;}
+   }
+   Check(exact,"100 overlap layouts preserve every visible pixel exactly once and exclude covered pixels");
    Check(Eligible(0,AppWindow,true,true,true,0,"OwnedApplication"),"owned APPWINDOW application remains eligible");
    Check(Eligible(0,0,true,false,true,0,"HiddenOwnerApplication"),"main application with a hidden owner remains eligible");
    Check(!Eligible(0,0,true,true,true,0,"ModalDialog"),"ordinary owned dialog is not duplicated as a separate app");
@@ -117,6 +144,11 @@ namespace BioPager {
    using(FixtureForm untitled=Fixture("",bounds,AppWindow,0)) {
     untitled.Show();untitled.Update();
     Check(NativeExclusion(untitled.Handle)==null,"actual untitled application window remains eligible");
+    List<WindowInfo> order=new List<WindowInfo>{new WindowInfo{Handle=visibleOwner.Handle},new WindowInfo{Handle=untitled.Handle}};
+    untitled.BringToFront();WindowCatalog.OrderFrontToBack(order);
+    Check(order[0].Handle==untitled.Handle,"catalog sorts actual HWNDs from foreground to background independently of input order");
+    visibleOwner.BringToFront();WindowCatalog.OrderFrontToBack(order);
+    Check(order[0].Handle==visibleOwner.Handle,"catalog refresh reflects a changed native Z-order");
     StringBuilder title=new StringBuilder(128);Native.GetWindowText(untitled.Handle,title,title.Capacity);
     Check(title.Length==0&&!String.IsNullOrWhiteSpace(WindowCatalog.DisplayTitle(title.ToString(),Process.GetCurrentProcess().ProcessName,ClassName(untitled.Handle))),"actual empty window caption has a nonblank display fallback");
    }
@@ -184,6 +216,23 @@ namespace BioPager {
      Check(await WaitForPixels(destination,area,Color.Lime,Color.Yellow,"thumbnail-after"),"thumbnail changes with source content without changing the HWND or re-registering");
      Check(previews.RegistrationCount==1,"live source updates preserve one registration");
 
+     Rectangle cover=new Rectangle(area.Left+60,area.Top,60,area.Height);
+     List<Rectangle> fragments=SpatialLayout.Uncovered(area,area,new[]{cover});
+     previews.BeginFrame();Check(previews.Show(source.Handle,process,cls,area,false,0,fragments),"spatial live preview accepts two cropped uncovered fragments");previews.EndFrame();
+     await Task.Delay(250);
+     using(Bitmap overlap=ReadPixels(destination,area)) {
+      SaveEvidence(overlap,"spatial-live-around-fallback");
+      Check(Near(overlap.GetPixel(20,60),Color.Lime)&&Near(overlap.GetPixel(90,60),Color.Magenta)&&Near(overlap.GetPixel(160,60),Color.Yellow),"DWM rear fragments preserve GDI foreground and retain correct left/right source pixels");
+     }
+     source.SecondPattern=false;source.Invalidate();source.Update();await Task.Delay(250);
+     using(Bitmap overlap=ReadPixels(destination,area)) {
+      SaveEvidence(overlap,"spatial-live-repaint");
+      Check(Near(overlap.GetPixel(20,60),Color.Red)&&Near(overlap.GetPixel(90,60),Color.Magenta)&&Near(overlap.GetPixel(160,60),Color.Blue),"overlapping live preview updates without leaking into foreground fallback");
+     }
+     previews.BeginFrame();Check(!previews.Show(source.Handle,process,cls,area,false,0,new List<Rectangle>()),"fully occluded live preview is suppressed");previews.EndFrame();
+     Check(previews.RegistrationCount==0,"fully covered source releases every fragment registration");
+     source.SecondPattern=true;source.Invalidate();source.Update();
+
      // Spatial mode and status overlays may request only a cached bitmap.
      // That still marks an entry as used, but must not retain its live surface.
      previews.BeginFrame();
@@ -207,7 +256,65 @@ namespace BioPager {
 
      previews.BeginFrame();Check(!previews.Show(source.Handle,process+1,cls,area,false,0),"mismatched source process identity cannot reuse another app's thumbnail");previews.EndFrame();
      Check(previews.RegistrationCount==0,"rejected source identity leaves no stale registration");
+     previews.BeginFrame();Check(previews.Show(source.Handle,process,cls,area,false,0),"synthetic cache fixture can establish its source identity");previews.EndFrame();
+     IDictionary entries=(IDictionary)typeof(WindowPreviews).GetField("entries",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(previews);
+     object entry=entries[source.Handle];Bitmap cached=new Bitmap(180,120);using(Graphics draw=Graphics.FromImage(cached))draw.Clear(Color.Cyan);
+     entry.GetType().GetField("Frame",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(entry,cached);
+     previews.BeginFrame();Check(!previews.Show(source.Handle,process,cls,area,true,0,fragments),"minimized source uses its cached frame and releases live fragments");
+     using(Bitmap fallback=new Bitmap(204,144))using(Graphics draw=Graphics.FromImage(fallback)) {
+      draw.Clear(Color.Magenta);using(Region clip=new Region(Rectangle.Empty)){foreach(Rectangle part in fragments)clip.Union(part);draw.SetClip(clip,System.Drawing.Drawing2D.CombineMode.Replace);Check(previews.TryDrawCached(draw,source.Handle,process,cls,area),"cached minimized source draws through the overlap clip");}
+      Check(Near(fallback.GetPixel(32,72),Color.Cyan)&&Near(fallback.GetPixel(102,72),Color.Magenta),"actual cached renderer preserves foreground pixels");SaveEvidence(fallback,"spatial-cached-around-foreground");
+     }
+     previews.EndFrame();Check(previews.RegistrationCount==0,"minimized cache path retains no live DWM surfaces");
+     if(SetWindowDisplayAffinity(source.Handle,1))try {
+      previews.BeginFrame();Check(!previews.Show(source.Handle,process,cls,area,false,0,fragments),"Windows protected source cannot register spatial live fragments");previews.EndFrame();
+      Check(previews.CachedFrameCount==0&&previews.RegistrationCount==0,"protection purges both cached pixels and every native registration");
+     }finally{SetWindowDisplayAffinity(source.Handle,0);}else Skip("Windows did not allow display-affinity protection on synthetic source");
     }
+   }
+  }
+
+  static FieldInfo PagerField(string name){return typeof(Pager).GetField(name,BindingFlags.Instance|BindingFlags.NonPublic);}
+  static object PagerCall(Pager pager,string name,params object[] args){return typeof(Pager).GetMethod(name,BindingFlags.Instance|BindingFlags.NonPublic).Invoke(pager,args);}
+  static void PagerSpatial(FixtureForm source) {
+   string folder=Path.Combine(Path.GetTempPath(),"BioPagerSpatial-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(folder);
+   string settings=Path.Combine(folder,"settings.txt");
+   File.WriteAllLines(settings,new[]{"240","132","False","False","0","0","True","True","False","False","200","-13170420","False"});
+   using(Pager pager=new Pager(settings))try {
+    PagerField("DeviceScale").SetValue(pager,1f);
+    Check((bool)PagerField("iconGrid").GetValue(pager),"existing grid arrangement remains selected on upgrade");
+    PagerField("gridItem").GetValue(pager).GetType().GetProperty("Checked").SetValue(PagerField("gridItem").GetValue(pager),false,null);
+    PagerField("iconGrid").SetValue(pager,true);PagerCall(pager,"LoadSettings");
+    Check(!(bool)PagerField("iconGrid").GetValue(pager),"spatial setting saves through the menu and reloads from disk");
+    Guid desktop=Guid.NewGuid();
+    List<Guid> desks=(List<Guid>)PagerField("desktops").GetValue(pager);desks.Clear();desks.Add(desktop);
+    PagerField("current").SetValue(pager,desktop);PagerField("embedded").SetValue(pager,false);
+    Rectangle screen=Screen.PrimaryScreen.Bounds;PagerField("screenBounds").SetValue(pager,screen);
+    List<WindowInfo> apps=(List<WindowInfo>)PagerField("windows").GetValue(pager);apps.Clear();
+    Rectangle front=new Rectangle(screen.Left+screen.Width/4,screen.Top+screen.Height/4,screen.Width/2,screen.Height/2);
+    apps.Add(new WindowInfo{Handle=source.Handle,Desktop=desktop,Bounds=screen,Title="Rear browser",Class="Rear"});
+    apps.Add(new WindowInfo{Handle=new IntPtr(123),Desktop=desktop,Bounds=front,Title="Foreground app",Class="Front"});
+    apps.Add(new WindowInfo{Handle=new IntPtr(124),Desktop=desktop,Bounds=screen,Title="Minimized app",Class="Minimized",Minimized=true});
+    using(Bitmap image=new Bitmap(260,132))using(Graphics g=Graphics.FromImage(image)) {
+     PagerCall(pager,"DrawPager",g,new Rectangle(0,0,260,132));SaveEvidence(image,"pager-spatial-layout");
+    }
+    Rectangle body=new Rectangle(24,19,232,87),frontMap=SpatialLayout.Map(front,screen,body),rearMap=SpatialLayout.Map(screen,screen,body);
+    Point frontPoint=new Point(frontMap.Left+frontMap.Width/2,frontMap.Top+frontMap.Height/2);
+    object hit=PagerCall(pager,"HitAt",frontPoint);FieldInfo window=hit.GetType().GetField("Window",BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic);
+    Check((IntPtr)window.GetValue(hit)==new IntPtr(123),"actual pager hit testing selects foreground app within overlap");
+    hit=PagerCall(pager,"HitAt",new Point(rearMap.Left+2,rearMap.Top+2));
+    Check((IntPtr)window.GetValue(hit)==source.Handle,"actual pager hit testing selects exposed rear app");
+    hit=PagerCall(pager,"HitAt",new Point(30,120));
+    Check((IntPtr)window.GetValue(hit)==new IntPtr(124),"minimized app stays accessible in separate strip without occluding desktop");
+    PagerCall(pager,"OnDown",pager,new MouseEventArgs(MouseButtons.Left,1,frontPoint.X,frontPoint.Y,0));
+    Check((IntPtr)PagerField("dragWindow").GetValue(pager)==new IntPtr(123),"drag gesture starts from the visible foreground hit");
+    PagerCall(pager,"CancelDrag");Check((IntPtr)PagerField("dragWindow").GetValue(pager)==IntPtr.Zero,"canceling spatial drag clears the selected window");
+    ((ToolStripMenuItem)PagerField("gridItem").GetValue(pager)).Checked=true;
+    PagerField("iconGrid").SetValue(pager,false);PagerCall(pager,"LoadSettings");
+    Check((bool)PagerField("iconGrid").GetValue(pager),"grid alternative also persists after selecting it again");
+   }finally {
+    // Never show this pager: Shown would initialize the user's virtual desktops.
+    PagerCall(pager,"OnFormClosed",new FormClosedEventArgs(CloseReason.None));Directory.Delete(folder,true);
    }
   }
 
@@ -215,7 +322,7 @@ namespace BioPager {
    Exception failure=null;
    using(FixtureForm host=Fixture("BioPager preview test source",new Rectangle(40,40,240,160),AppWindow,0)) {
     host.Shown+=async delegate {
-     try {NativePolicy(host);await PixelPreviews(host);}
+     try {NativePolicy(host);PagerSpatial(host);await PixelPreviews(host);}
      catch(Exception ex){failure=ex;}
      finally {host.Close();}
     };

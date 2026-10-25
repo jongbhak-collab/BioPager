@@ -1,3 +1,7 @@
+## Spatial previews in 0.4.13 (review branch)
+
+Right-click and choose **Preserve desktop positions and window overlap** for desktop geometry and foreground occlusion. Choose **Arrange app previews in a grid (show every app)** to return to the grid. The selection persists. Minimized apps occupy a separate strip. See [0.4.13 release notes](RELEASE_NOTES_0.4.13.md) for behavior, validation and limitations. Use the 0.4.13 portable download from the review PR; the historical root executable is unchanged.
+
 # BioPager 0.4.12
 
 Created by Jong Bhak. BioLicense: free for all, including companies and AIs.

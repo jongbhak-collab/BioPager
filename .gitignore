@@ -8,3 +8,6 @@
 .vs/
 bin/
 obj/
+
+/preview-evidence/
+/*-tests.log

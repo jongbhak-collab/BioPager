@@ -1,10 +1,11 @@
 // Copyright (c) 2026 Jong Bhak. Licensed under BioLicense 1.0; see LICENSE.
-// BioPager 0.4.12. Created by Jong Bhak. Inspired by Vern by One Guy Coding.
+// BioPager 0.4.13. Created by Jong Bhak. Inspired by Vern by One Guy Coding.
 // Build with the .NET Framework C# compiler shipped with Windows 10/11.
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -170,6 +171,9 @@ namespace BioPager {
    previewItem.CheckedChanged+=delegate {showPreviews=previewItem.Checked;Invalidate();SaveSettings();};menu.Items.Add(previewItem);
    gridItem=new ToolStripMenuItem("Arrange app previews in a grid (show every app)");gridItem.Checked=iconGrid;gridItem.CheckOnClick=true;
    gridItem.CheckedChanged+=delegate {iconGrid=gridItem.Checked;Invalidate();SaveSettings();};menu.Items.Add(gridItem);
+   ToolStripMenuItem spatialItem=new ToolStripMenuItem("Preserve desktop positions and window overlap");
+   spatialItem.Click+=delegate {gridItem.Checked=false;};
+   menu.Opening+=delegate {spatialItem.Checked=!iconGrid;};menu.Items.Add(spatialItem);
    menu.Items.Add("Background color...",null,delegate {ChooseBackgroundColor();});
    menu.Items.Add("Restore default background",null,delegate {backgroundColor=Color.FromArgb(55,9,12);ApplyBackgroundColor();SaveSettings();});
    embedItem=new ToolStripMenuItem("Integrate with taskbar");embedItem.Checked=embedded;embedItem.CheckOnClick=true;
@@ -227,7 +231,7 @@ namespace BioPager {
     TextBox help=new TextBox();help.Dock=DockStyle.Fill;help.Multiline=true;
     help.ReadOnly=true;help.ScrollBars=ScrollBars.Vertical;help.BorderStyle=BorderStyle.None;
     help.BackColor=SystemColors.Control;help.ForeColor=SystemColors.ControlText;
-    help.Text="BioPager 0.4.12\nCreated by Jong Bhak\nBioLicense: free for all, including companies and AIs.\n\nInspired by Vern, created by One Guy Coding.\nIndependent implementation; no Vern code or assets used.\nDesktop API: VirtualDesktopAccessor by Jari Pennanen (MIT).\n\nWindows taskbar location: right-click > Windows taskbar location > Top or Bottom. Uses native Windows taskbar positioning where available. No ExplorerPatcher installation needed. Windows may apply the location to all taskbars.\n\nBackground color: right-click > Background color...\n\nClick a tile: direct desktop switch without the pager's transition animation. Double-click an app: focus it. Drag an app to another tile: move that window silently. Escape cancels dragging.\n\nShow actual app and browser previews: show each window's current contents, including the active browser tab. A minimized or inactive window may show its last sampled view. Content protected by Windows uses an icon or name. Samples stay in memory and are discarded when BioPager closes.\n\nArrange app previews in a grid: keep every app reachable. This is enabled when upgrading to 0.4.12. Turn it off for the old spatial arrangement; that mode uses sampled views to preserve window overlap. Larger tiles make page previews easier to recognize.\n\nOther apps: windows whose desktop is unavailable remain listed here. Click to focus; dragging is available once Windows identifies their desktop.\n\nShow desktop titles: hide/show headers. Copy window diagnostics: copy a local troubleshooting report, including window titles, only when selected.\n\nIntegrate with taskbar: show a compact always-on-top pager within the taskbar area. Drag the left grip horizontally to position it, or use Taskbar position. It can cover taskbar buttons; use Taskbar position to choose a clear area. Turn off integration to return to the floating pager. Double-click the tray icon to recover a floating pager.\n\nDock beside taskbar: a separate reserved appbar, now following the top/bottom taskbar position.\n\nDesktop helpers are detected automatically by runtime checks, without a Windows build whitelist. When no helper supports an action, switching and new desktops use Windows shortcuts; use Win+Tab for app dragging and removal. During desktop switches, Windows animation effects are temporarily disabled and then restored. The saved Windows preference is not changed.".Replace("\n",Environment.NewLine);
+    help.Text="BioPager 0.4.13\nCreated by Jong Bhak\nBioLicense: free for all, including companies and AIs.\n\nInspired by Vern, created by One Guy Coding.\nIndependent implementation; no Vern code or assets used.\nDesktop API: VirtualDesktopAccessor by Jari Pennanen (MIT).\n\nWindows taskbar location: right-click > Windows taskbar location > Top or Bottom. Uses native Windows taskbar positioning where available. No ExplorerPatcher installation needed. Windows may apply the location to all taskbars.\n\nBackground color: right-click > Background color...\n\nClick a tile: direct desktop switch without the pager's transition animation. Double-click an app: focus it. Drag an app to another tile: move that window silently. Escape cancels dragging.\n\nShow actual app and browser previews: show each window's current contents, including the active browser tab. A minimized or inactive window may show its last sampled view. Content protected by Windows uses an icon or name. Samples stay in memory and are discarded when BioPager closes.\n\nArrange app previews in a grid: keep every app reachable. This is enabled when upgrading to 0.4.13. Select Preserve desktop positions and window overlap for actual geometry and front-to-back overlap across monitors. Minimized apps appear in a separate bottom strip. Fully covered apps are reachable in grid mode. Spatial live previews are cropped around front windows, including cached or protected foreground content. Larger tiles make page previews easier to recognize.\n\nOther apps: windows whose desktop is unavailable remain listed here. Click to focus; dragging is available once Windows identifies their desktop.\n\nShow desktop titles: hide/show headers. Copy window diagnostics: copy a local troubleshooting report, including window titles, only when selected.\n\nIntegrate with taskbar: show a compact always-on-top pager within the taskbar area. Drag the left grip horizontally to position it, or use Taskbar position. It can cover taskbar buttons; use Taskbar position to choose a clear area. Turn off integration to return to the floating pager. Double-click the tray icon to recover a floating pager.\n\nDock beside taskbar: a separate reserved appbar, now following the top/bottom taskbar position.\n\nDesktop helpers are detected automatically by runtime checks, without a Windows build whitelist. When no helper supports an action, switching and new desktops use Windows shortcuts; use Win+Tab for app dragging and removal. During desktop switches, Windows animation effects are temporarily disabled and then restored. The saved Windows preference is not changed.".Replace("\n",Environment.NewLine);
     Button close=new Button();close.Text="Close";close.AutoSize=true;
     close.Anchor=AnchorStyles.Right|AnchorStyles.Bottom;close.DialogResult=DialogResult.OK;
     layout.Controls.Add(picture,0,0);layout.Controls.Add(help,0,1);layout.Controls.Add(close,0,2);
@@ -314,20 +318,38 @@ namespace BioPager {
     hits.Add(new Hit{Box=tile,Desktop=hitDesktop});
     int header=showTitles||unassigned?ScaleValue(19):ScaleValue(3);
     Rectangle body=new Rectangle(tile.X+4,tile.Y+header,Math.Max(1,tw-8),Math.Max(1,th-header-ScaleValue(4)));
-    float scale=Math.Min((float)body.Width/Math.Max(1,screenBounds.Width),(float)body.Height/Math.Max(1,screenBounds.Height));
-    float ox=body.X+(body.Width-screenBounds.Width*scale)/2,oy=body.Y+(body.Height-screenBounds.Height*scale)/2;
     bool grid=iconGrid||unassigned;
-    if(!grid)foreach(Screen monitor in Screen.AllScreens) {Rectangle b=monitor.Bounds;using(Pen pen=new Pen(Blend(backgroundColor,textColor,0.35)))g.DrawRectangle(pen,ox+(b.Left-screenBounds.Left)*scale,oy+(b.Top-screenBounds.Top)*scale,b.Width*scale,b.Height*scale);}
     int appCount=0,appIndex=0;foreach(WindowInfo app in windows)if(app.Pinned||app.Desktop==desktop)appCount++;
     int gridCols=Math.Max(1,(int)Math.Ceiling(Math.Sqrt(appCount*(double)body.Width/Math.Max(1,body.Height)/1.6)));
     int gridRows=Math.Max(1,(appCount+gridCols-1)/gridCols);
-    foreach(WindowInfo w in windows) {
-     if(!w.Pinned&&w.Desktop!=desktop)continue;
-     Rectangle r=new Rectangle((int)(ox+(w.Bounds.Left-screenBounds.Left)*scale),(int)(oy+(w.Bounds.Top-screenBounds.Top)*scale),Math.Max(8,(int)(w.Bounds.Width*scale)),Math.Max(7,(int)(w.Bounds.Height*scale)));
+    Rectangle spatialBody=body;int minimizedCount=0,minimizedIndex=0;
+    if(!grid){foreach(WindowInfo app in windows)if((app.Pinned||app.Desktop==desktop)&&app.Minimized)minimizedCount++;
+     if(minimizedCount>0)spatialBody.Height=Math.Max(1,body.Height-Math.Min(ScaleValue(22),body.Height/3));}
+    if(!grid)foreach(Screen monitor in Screen.AllScreens){Rectangle outline=SpatialLayout.Map(monitor.Bounds,screenBounds,spatialBody);using(Pen pen=new Pen(Blend(backgroundColor,textColor,0.35)))g.DrawRectangle(pen,outline);}
+    for(int wi=0;wi<windows.Count;wi++) {
+     WindowInfo w=windows[wi];if(!w.Pinned&&w.Desktop!=desktop)continue;
+     Rectangle r=SpatialLayout.Map(w.Bounds,screenBounds,spatialBody);
+     bool minimizedStrip=!grid&&w.Minimized;
      if(grid){int cw=Math.Max(1,body.Width/gridCols),ch=Math.Max(1,body.Height/gridRows);r=new Rectangle(body.X+(appIndex%gridCols)*cw,body.Y+(appIndex/gridCols)*ch,Math.Max(2,cw-2),Math.Max(2,ch-2));}appIndex++;
-     r=Rectangle.Intersect(r,body);if(r.Width<2||r.Height<2)continue;
-     DrawApplication(g,w,r,grid&&!statusVisible&&!appDragging);
-     hits.Add(new Hit{Box=r,Desktop=hitDesktop,Window=w.Handle});
+     if(minimizedStrip){int cw=Math.Max(1,body.Width/Math.Max(1,minimizedCount));r=new Rectangle(body.Left+minimizedIndex++*cw,spatialBody.Bottom,cw,body.Bottom-spatialBody.Bottom);}
+     Rectangle visible=Rectangle.Intersect(r,grid||minimizedStrip?body:spatialBody);if(visible.Width<1||visible.Height<1)continue;
+     List<Rectangle> pieces=null;
+     if(!grid&&!minimizedStrip) {
+      List<Rectangle> front=new List<Rectangle>();
+      for(int j=wi+1;j<windows.Count;j++){WindowInfo above=windows[j];if(!above.Minimized&&(above.Pinned||above.Desktop==desktop))front.Add(SpatialLayout.Map(above.Bounds,screenBounds,spatialBody));}
+      pieces=new List<Rectangle>();
+      foreach(Screen monitor in Screen.AllScreens)pieces.AddRange(SpatialLayout.Uncovered(r,Rectangle.Intersect(spatialBody,SpatialLayout.Map(monitor.Bounds,screenBounds,spatialBody)),front));
+     }
+     GraphicsState saved=g.Save();
+     try {
+      using(Region clip=new Region(Rectangle.Empty)) {
+       if(pieces==null)clip.Union(visible);else foreach(Rectangle part in pieces)clip.Union(part);
+       g.SetClip(clip,CombineMode.Intersect);
+       DrawApplication(g,w,r,!statusVisible&&!appDragging&&!minimizedStrip,pieces);
+      }
+     }finally{g.Restore(saved);}
+     if(pieces==null)hits.Add(new Hit{Box=visible,Desktop=hitDesktop,Window=w.Handle});
+     else foreach(Rectangle part in pieces)hits.Add(new Hit{Box=part,Desktop=hitDesktop,Window=w.Handle});
     }
     if(showTitles||unassigned)TextRenderer.DrawText(g,unassigned?"Other apps":DesktopName(i),Font,new Rectangle(tile.X+5,tile.Y+1,tw-9,ScaleValue(17)),textColor,TextFormatFlags.EndEllipsis|TextFormatFlags.NoPrefix);
     using(Pen p=new Pen(selected?(textColor==Color.Black?Color.FromArgb(150,65,0):Color.FromArgb(255,200,91)):Blend(backgroundColor,textColor,0.65),selected?2:1))g.DrawRectangle(p,tile.X+1,tile.Y+1,tw-2,th-2);
@@ -337,27 +359,29 @@ namespace BioPager {
    if(DisplayCount==0)TextRenderer.DrawText(g,"Win+Tab",Font,new Rectangle(grip,0,width-grip,height),textColor,TextFormatFlags.VerticalCenter|TextFormatFlags.HorizontalCenter);
    if(statusVisible) {using(Brush b=new SolidBrush(Color.FromArgb(235,25,25,30)))g.FillRectangle(b,viewport);TextRenderer.DrawText(g,status,Font,viewport,Color.White,TextFormatFlags.WordBreak|TextFormatFlags.VerticalCenter);}
   }
-  void DrawApplication(Graphics g,WindowInfo w,Rectangle r,bool allowLive) {
+  void DrawApplication(Graphics g,WindowInfo w,Rectangle r,bool allowLive,List<Rectangle> pieces) {
    int hash=17;unchecked{foreach(char c in w.Class??w.Title??"App")hash=hash*31+c;}
    Color color=Color.FromArgb(42+(hash&63),53+((hash>>6)&63),73+((hash>>12)&63));
    using(Brush b=new SolidBrush(color))g.FillRectangle(b,r);
-   int labelHeight=showPreviews&&r.Height>=ScaleValue(25)&&r.Width>=ScaleValue(22)?ScaleValue(12):0;
+   int labelHeight=pieces==null&&showPreviews&&r.Height>=ScaleValue(25)&&r.Width>=ScaleValue(22)?ScaleValue(12):0;
    Rectangle content=new Rectangle(r.X+1,r.Y+1,Math.Max(0,r.Width-2),Math.Max(0,r.Height-2-labelHeight));
    if(content.Width>3&&content.Height>3){
     int size=Math.Min(ScaleValue(24),Math.Min(content.Width,content.Height));
     if(w.Icon!=null&&size>=8)g.DrawIcon(w.Icon,new Rectangle(content.X+(content.Width-size)/2,content.Y+(content.Height-size)/2,size,size));
     else DrawInitials(g,w.Title,content);
     if(showPreviews&&previews!=null){
-     // DWM draws above GDI. Use disjoint grid cells for live surfaces so a rear
-     // window cannot cover a front window's cached bitmap in spatial mode.
-     bool live=allowLive&&previews.Show(w.Handle,w.Process,w.Class,content,w.Minimized,w.Cloak);
+     // DWM draws above GDI; spatial live surfaces must exclude all front
+     // rectangles, including foreground icons, cached images and borders.
+     List<Rectangle> livePieces=null;
+     if(pieces!=null){livePieces=new List<Rectangle>();foreach(Rectangle part in pieces){Rectangle cut=Rectangle.Intersect(part,content);if(cut.Width>0&&cut.Height>0)livePieces.Add(cut);}}
+     bool live=allowLive&&(livePieces==null||livePieces.Count<=32)&&previews.Show(w.Handle,w.Process,w.Class,pieces==null?content:r,w.Minimized,w.Cloak,livePieces);
      if(!live)previews.TryDrawCached(g,w.Handle,w.Process,w.Class,content);
     }
    }
    if(labelHeight>0){
     Rectangle label=new Rectangle(r.X+2,r.Bottom-labelHeight-1,Math.Max(1,r.Width-4),labelHeight);
     string title=(w.Desktop==Guid.Empty?"? ":w.Minimized?"_ ":"")+w.Title;
-    TextRenderer.DrawText(g,title,previewFont,label,Color.White,TextFormatFlags.EndEllipsis|TextFormatFlags.NoPrefix|TextFormatFlags.SingleLine|TextFormatFlags.VerticalCenter|TextFormatFlags.NoPadding);
+    TextRenderer.DrawText(g,title,previewFont,label,Color.White,TextFormatFlags.EndEllipsis|TextFormatFlags.NoPrefix|TextFormatFlags.SingleLine|TextFormatFlags.VerticalCenter|TextFormatFlags.NoPadding|TextFormatFlags.PreserveGraphicsClipping);
    }
    using(Pen border=new Pen(w.Minimized?Color.FromArgb(180,183,193):Color.FromArgb(203,207,217)))g.DrawRectangle(border,r.X,r.Y,r.Width-1,r.Height-1);
    if(w.Minimized&&labelHeight==0&&r.Height>=5)g.DrawLine(Pens.White,r.Left+2,r.Bottom-3,r.Right-2,r.Bottom-3);
@@ -367,7 +391,7 @@ namespace BioPager {
    string text=String.IsNullOrWhiteSpace(title)?"App":title.Trim();
    System.Globalization.StringInfo value=new System.Globalization.StringInfo(text);
    text=value.SubstringByTextElements(0,Math.Min(2,value.LengthInTextElements)).ToUpperInvariant();
-   TextRenderer.DrawText(g,text,previewFont,rect,Color.White,TextFormatFlags.HorizontalCenter|TextFormatFlags.VerticalCenter|TextFormatFlags.NoPrefix|TextFormatFlags.NoPadding);
+   TextRenderer.DrawText(g,text,previewFont,rect,Color.White,TextFormatFlags.HorizontalCenter|TextFormatFlags.VerticalCenter|TextFormatFlags.NoPrefix|TextFormatFlags.NoPadding|TextFormatFlags.PreserveGraphicsClipping);
   }
   Hit HitAt(Point p) {for(int i=hits.Count-1;i>=0;i--)if(hits[i].Box.Contains(p))return hits[i];return null;}
   void OnDown(object sender,MouseEventArgs e) {
