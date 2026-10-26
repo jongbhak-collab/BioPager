@@ -1,0 +1,165 @@
+BioPager 0.4.14 validation
+Portable executable: Windows x64, .NET Framework
+File version: 0.4.14.0
+SHA-256 (BioPager.exe): 5cc137a8dae2fa39b7a13868a09133157045ea1a9d2d02c8e6c61f96bcd28655
+
+Compiler: Windows .NET Framework x64 C# compiler, warnings as errors.
+Unit run: 71 checks passed.
+Windows run: 148 checks passed (includes unit checks); 0 skipped; 0 failed.
+
+Synthetic windows and isolated settings only. Native DWM badge cutouts, live repaint,
+decorated portrait client fitting, cached badge pixels, spatial overlap clipping,
+legacy settings migration, toggle persistence and thumbnail cleanup were checked.
+The suite does not change the user's virtual desktops. Specific ChatGPT/Claude
+windows and physical mixed-DPI configurations were not directly tested.
+
+PASS: spatial mapping preserves negative multi-monitor origin and aspect ratio
+PASS: off-screen windows retain original size before clipping
+PASS: center foreground leaves exactly four disjoint uncovered rear fragments
+PASS: fully covered rear window has no live destination or hit region
+PASS: DWM source crop preserves the rear image position instead of squeezing it
+PASS: visual fallback leaves foreground pixels intact
+PASS: 100 overlap layouts preserve every visible pixel exactly once and exclude covered pixels
+PASS: owned APPWINDOW application remains eligible
+PASS: main application with a hidden owner remains eligible
+PASS: ordinary owned dialog is not duplicated as a separate app
+PASS: floating helper/tool window remains excluded
+PASS: child control is not mistaken for a desktop app
+PASS: shell taskbar remains excluded even with application styling
+PASS: non-activating helper remains excluded
+PASS: shell cloaking on another virtual desktop does not hide the app from BioPager
+PASS: application-cloaked helper remains excluded
+PASS: active browser page title is preserved
+PASS: untitled app receives a useful process-name fallback
+PASS: missing title and process metadata never produce a blank app label
+PASS: confirmed desktop assignment survives shell cloaking
+PASS: positive current-desktop evidence replaces a stale cached assignment
+PASS: cached current assignment contradicted by Windows is not reused
+PASS: unknown desktop is not invented or treated as pinned everywhere
+PASS: wide preview fits without distortion or clipping
+PASS: preview is centered inside its destination
+PASS: portrait app preview preserves its aspect ratio
+PASS: invalid preview dimensions produce no draw rectangle
+PASS: DWM thumbnail property layout matches the Win32 ABI
+PASS: app badge is a top-left square approximately 15 percent of preview width
+PASS: app badge stays at the preview's top-left corner
+PASS: badge minimum never consumes more than half a narrow preview
+PASS: tiny or empty previews omit unreadable badges
+PASS: adapter candidates are independent of Windows build numbers
+PASS: only embedded known adapters may be probed
+PASS: unconfirmed mutations and bad payloads are not retried via shortcuts
+PASS: first-use setup adds five to a one-desktop profile
+PASS: repeated setup does not recreate desktops
+PASS: existing larger layouts are preserved
+PASS: last desktop cannot be removed
+PASS: stale or non-next target rejected before removal
+PASS: Windows refusal does not report success
+PASS: fresh profile marks setup pending
+PASS: failed first setup remains pending after settings save
+PASS: completed setup does not run again
+PASS: upgrading existing users skips default desktop creation
+PASS: fallback switches one acknowledged desktop at a time
+PASS: fallback rejects missing target without sending keys
+PASS: fallback creation restores original desktop
+PASS: fallback fresh profile reaches six desks
+PASS: held modifiers or blocked input cannot report success
+PASS: concurrent layout changes stop fallback switching
+PASS: closing pager cancels fallback without sending more input
+PASS: embedded helper verified: modern
+PASS: helper cleaned up: modern
+PASS: embedded helper verified: 2023-02-22-windows11
+PASS: helper cleaned up: 2023-02-22-windows11
+PASS: embedded helper verified: 2023-11-10-windows11
+PASS: helper cleaned up: 2023-11-10-windows11
+PASS: embedded helper verified: 2024-01-25-windows11
+PASS: helper cleaned up: 2024-01-25-windows11
+PASS: failed first adapter falls through to a working adapter
+PASS: native crash is isolated and reported
+PASS: ambiguous mutation is never replayed
+PASS: worker reconnects and reprobes after a crash
+PASS: no operation sent when all read-only probes fail
+PASS: failed probes have a bounded cooldown
+PASS: payload verification failure is not hidden by another adapter
+PASS: switch uses an adapter with the switch capability
+PASS: missing create capability tries a different adapter before mutation
+PASS: unavailable remove capability fails without a mutation
+PASS: unavailable removal does not disable desktop switching
+PASS: hidden-owner fixture is an actual hidden HWND
+PASS: owned APPWINDOW fixture carries real ownership and application flags
+PASS: actual owned APPWINDOW is included by the native policy
+PASS: hidden-owner application fixture keeps its hidden owner
+PASS: actual main window with hidden owner is included
+PASS: actual visible-owner popup is not duplicated
+PASS: actual untitled application window remains eligible
+PASS: catalog sorts actual HWNDs from foreground to background independently of input order
+PASS: catalog refresh reflects a changed native Z-order
+PASS: actual empty window caption has a nonblank display fallback
+PASS: actual tool window remains excluded
+PASS: existing grid arrangement remains selected on upgrade
+PASS: spatial setting saves through the menu and reloads from disk
+PASS: actual pager hit testing selects foreground app within overlap
+PASS: actual pager hit testing selects exposed rear app
+PASS: minimized app stays accessible in separate strip without occluding desktop
+PASS: drag gesture starts from the visible foreground hit
+PASS: canceling spatial drag clears the selected window
+PASS: grid alternative also persists after selecting it again
+PASS: legacy settings enable app badges on upgrade without replacing the existing preview preference
+PASS: badge upgrade preserves an explicit disabled-preview setting
+PASS: app badge option is discoverable as a checkable menu item
+PASS: turning badges off persists the appended setting
+PASS: disabled app badge preference survives a settings reload
+PASS: re-enabling app badges persists and reloads
+PASS: actual cached preview renderer overlays the app logo at the top-left
+PASS: cached window content remains visible around the app logo badge
+PASS: disabling the badge restores cached content at the same position
+PASS: spatial cached preview draws the exposed part of its app badge
+PASS: rear app badge obeys foreground clipping in spatial previews
+PASS: cached badge rendering keeps its frame without registering live surfaces
+PASS: real top-level DWM source is registered exactly once
+PASS: DWM thumbnail displays the source window's actual red and blue pixels
+PASS: thumbnail changes with source content without changing the HWND or re-registering
+PASS: live source updates preserve one registration
+PASS: grid live preview accepts an app badge without replacing source content
+PASS: live badge uses a bounded set of disjoint thumbnail fragments
+PASS: GDI app badge remains above live source pixels
+PASS: badge remains visible while uncovered live source pixels update
+PASS: disabling app badges restores the complete live thumbnail
+PASS: disabling badges releases every extra thumbnail fragment
+PASS: turning the badge off restores source pixels at its former position
+PASS: full thumbnail remains live after disabling the badge
+PASS: spatial live preview accepts two cropped uncovered fragments
+PASS: DWM rear fragments preserve GDI foreground and retain correct left/right source pixels
+PASS: overlapping live preview updates without leaking into foreground fallback
+PASS: fully occluded live preview is suppressed
+PASS: fully covered source releases every fragment registration
+PASS: cache-only frame releases a previously live thumbnail even when the source entry is still used
+PASS: cache-only frame cannot leave an old DWM surface above spatial previews or status text
+PASS: live thumbnail resumes after a cache-only frame
+PASS: unused thumbnail registration is released on the next frame
+PASS: released thumbnail stops covering the destination
+PASS: thumbnail can be registered again after removal
+PASS: destination destruction releases thumbnail registrations
+PASS: thumbnail can be restored after destination handle recreation
+PASS: recreated destination displays the current source content
+PASS: mismatched source process identity cannot reuse another app's thumbnail
+PASS: rejected source identity leaves no stale registration
+PASS: synthetic cache fixture can establish its source identity
+PASS: minimized source uses its cached frame and releases live fragments
+PASS: cached minimized source draws through the overlap clip
+PASS: actual cached renderer preserves foreground pixels
+PASS: minimized cache path retains no live DWM surfaces
+PASS: Windows protected source cannot register spatial live fragments
+PASS: protection purges both cached pixels and every native registration
+PASS: decorated fixture exposes a native client rectangle
+INFO: decorated fixture managed client={Width=256, Height=360}, native client={X=0,Y=0,Width=256,Height=360}, outer={X=24,Y=120,Width=262,Height=411}
+PASS: decorated source is genuinely portrait after Windows applies native minimum sizes
+PASS: decorated fixture establishes portrait letterboxing before testing badge cropping
+PASS: decorated portrait source establishes its fitted client preview
+PASS: decorated portrait baseline contains client pixels without its titlebar
+PASS: decorated portrait client preview accepts an app badge
+PASS: badge preserves portrait client scaling and source crops
+PASS: badged portrait preview retains its original letterboxing
+PASS: badged client source preserves a distinct top stripe without a titlebar offset
+PASS: decorated portrait pixels outside the badge match the unbadged fitted client image
+PASS: closing a badged portrait source releases all native thumbnails
+
