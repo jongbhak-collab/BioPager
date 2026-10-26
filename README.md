@@ -1,3 +1,7 @@
+## BioPager 1.0: selectable app logo sizes
+
+Right-click BioPager or its tray icon, open **App logo badge size**, and choose **15%**, **20%**, **30%**, or **50%**. The saved choice starts at **30%** and applies to live and cached previews. Large top-left badges retain the surrounding window content and follow spatial overlap. See [1.0 release notes](RELEASE_NOTES_1.0.md). The same size update is also available in the 0.4.15 build.
+
 ## App logo badges in 0.4.14 (review branch)
 
 Right-click and toggle **Show app logo badges on previews** to identify white or similar-looking windows. The saved option starts enabled. A small app icon at the top-left, about 15% of the preview width, overlays the live or cached image. Grid fitting and spatial overlap remain intact. See [0.4.14 release notes](RELEASE_NOTES_0.4.14.md). Use the 0.4.14 portable build; the historical root executable is unchanged.

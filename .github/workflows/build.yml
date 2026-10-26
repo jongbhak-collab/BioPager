@@ -24,11 +24,11 @@ jobs:
         run: BioPagerTests.exe --window-tests
       - uses: actions/upload-artifact@v4
         with:
-          name: BioPager-0.4.14-windows-x64
+          name: BioPager-1.0-windows-x64
           path: src/BioPager.exe
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: BioPager-0.4.14-preview-evidence
+          name: BioPager-1.0-preview-evidence
           path: preview-evidence
           if-no-files-found: ignore

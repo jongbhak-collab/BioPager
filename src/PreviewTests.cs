@@ -114,9 +114,20 @@ namespace BioPager {
    Rectangle badge=Pager.AppBadgeBounds(new Rectangle(11,23,200,100),8);
    Check(badge.Left>=11&&badge.Top>=23&&badge.Right<=211&&badge.Bottom<=123&&badge.Width==badge.Height&&Math.Abs(badge.Width-30)<=1,"app badge is a top-left square approximately 15 percent of preview width");
    Check(badge.Left<=13&&badge.Top<=25,"app badge stays at the preview's top-left corner");
-   Rectangle narrow=Pager.AppBadgeBounds(new Rectangle(10,20,20,100),12);
-   Check(narrow.Width<=10&&narrow.Height<=10&&new Rectangle(10,20,20,100).Contains(narrow),"badge minimum never consumes more than half a narrow preview");
-   Check(Pager.AppBadgeBounds(new Rectangle(0,0,6,6),12).IsEmpty&&Pager.AppBadgeBounds(Rectangle.Empty,8).IsEmpty,"tiny or empty previews omit unreadable badges");
+   int previous=0;
+   foreach(int percent in new[]{15,20,30,50}) {
+    Rectangle selected=Pager.AppBadgeBounds(new Rectangle(11,23,200,160),8,percent);
+    Check(selected.Left==11&&selected.Top==23&&selected.Width==percent*2&&selected.Height==selected.Width&&selected.Width>previous,"selectable "+percent+" percent badge has the requested preview-width ratio and grows monotonically");
+    previous=selected.Width;
+   }
+   Rectangle square=Pager.AppBadgeBounds(new Rectangle(10,20,100,100),8,50);
+   Check(square.Width==50&&square.Height==50&&square.Right<110&&square.Bottom<120,"50 percent square preview badge preserves visible window content");
+   Rectangle shortPreview=new Rectangle(10,20,200,20),shortBadge=Pager.AppBadgeBounds(shortPreview,12,50);
+   Check(shortBadge.Width==18&&shortPreview.Contains(shortBadge)&&shortBadge.Bottom<shortPreview.Bottom,"large badge leaves a content margin when a short preview limits its size");
+   Rectangle narrow=Pager.AppBadgeBounds(new Rectangle(10,20,20,100),12,50);
+   Check(narrow.Width==12&&new Rectangle(10,20,20,100).Contains(narrow),"readability minimum fits inside a narrow preview without replacing it");
+   Check(Pager.AppBadgeBounds(new Rectangle(0,0,6,6),12,50).IsEmpty&&Pager.AppBadgeBounds(Rectangle.Empty,8,30).IsEmpty,"tiny or empty previews omit unreadable badges");
+   Check(Pager.AppBadgeBounds(new Rectangle(0,0,200,160),8,25)==Pager.AppBadgeBounds(new Rectangle(0,0,200,160),8,30),"unsupported badge percentage falls back to the 30 percent default");
   }
 
   static string ClassName(IntPtr window) {
@@ -202,7 +213,12 @@ namespace BioPager {
     await Task.Delay(75);
     using(Bitmap image=ReadPixels(destination,area)) {
      Color pixel=image.GetPixel(badge.Left-area.Left+badge.Width/2,badge.Top-area.Top+badge.Height/2);
-     if(Near(pixel,badgeColor)&&Matches(image,left,right)){SaveEvidence(image,name);return true;}
+     // The 50% option can cover the ordinary middle-left sample. Read the
+     // lower exposed strip to verify that the surrounding source stays live.
+     int sampleY=Math.Max(image.Height*3/4,badge.Bottom-area.Top+1);
+     sampleY=Math.Min(image.Height-1,sampleY);
+     bool surrounding=Near(image.GetPixel(image.Width/4,sampleY),left)&&Near(image.GetPixel(image.Width*3/4,sampleY),right);
+     if(Near(pixel,badgeColor)&&surrounding){SaveEvidence(image,name);return true;}
      if(attempt==23)SaveEvidence(image,name+"-failed");
     }
    }
@@ -238,13 +254,26 @@ namespace BioPager {
      Check(await WaitForPixels(destination,area,Color.Lime,Color.Yellow,"thumbnail-after"),"thumbnail changes with source content without changing the HWND or re-registering");
      Check(previews.RegistrationCount==1,"live source updates preserve one registration");
 
-     Rectangle badge=Pager.AppBadgeBounds(area,8);
+     Rectangle badge=Pager.AppBadgeBounds(area,8,30);
      destination.Badge=badge;destination.Invalidate();destination.Update();
      previews.BeginFrame();Check(previews.Show(source.Handle,process,cls,area,false,0,null,badge),"grid live preview accepts an app badge without replacing source content");previews.EndFrame();
      Check(previews.RegistrationCount>1&&previews.RegistrationCount<=5,"live badge uses a bounded set of disjoint thumbnail fragments");
      Check(await WaitForBadgePixels(destination,area,badge,Color.DarkOrange,Color.Lime,Color.Yellow,"thumbnail-badge-before"),"GDI app badge remains above live source pixels");
      source.SecondPattern=false;source.Invalidate();source.Update();
      Check(await WaitForBadgePixels(destination,area,badge,Color.DarkOrange,Color.Red,Color.Blue,"thumbnail-badge-after"),"badge remains visible while uncovered live source pixels update");
+     Rectangle smallerBadge=badge;
+     badge=Pager.AppBadgeBounds(area,8,50);destination.Badge=badge;destination.Invalidate();destination.Update();
+     previews.BeginFrame();Check(previews.Show(source.Handle,process,cls,area,false,0,null,badge),"live thumbnail accepts the 50 percent badge after a size change");previews.EndFrame();
+     Check(previews.RegistrationCount>1&&previews.RegistrationCount<=5,"growing the badge replaces thumbnail fragments without retaining the old set");
+     Check(await WaitForBadgePixels(destination,area,badge,Color.DarkOrange,Color.Red,Color.Blue,"thumbnail-badge-50"),"50 percent badge preserves the exposed live source image");
+     source.SecondPattern=true;source.Invalidate();source.Update();
+     Check(await WaitForBadgePixels(destination,area,badge,Color.DarkOrange,Color.Lime,Color.Yellow,"thumbnail-badge-50-update"),"exposed source content continues updating around the 50 percent badge");
+     badge=smallerBadge;destination.Badge=badge;destination.Invalidate();destination.Update();
+     previews.BeginFrame();Check(previews.Show(source.Handle,process,cls,area,false,0,null,badge),"live thumbnail accepts shrinking the badge to 30 percent");previews.EndFrame();
+     Check(previews.RegistrationCount>1&&previews.RegistrationCount<=5,"shrinking the badge releases superseded native fragments");
+     Check(await WaitForBadgePixels(destination,area,badge,Color.DarkOrange,Color.Lime,Color.Yellow,"thumbnail-badge-30-restored"),"shrinking the badge restores the newly exposed source pixels");
+     using(Bitmap image=ReadPixels(destination,area))Check(Near(image.GetPixel(area.Width*2/5,badge.Height/2),Color.Lime),"pixels covered only by the former 50 percent live badge become visible again at 30 percent");
+     source.SecondPattern=false;source.Invalidate();source.Update();
      destination.Badge=Rectangle.Empty;destination.Invalidate();destination.Update();
      previews.BeginFrame();Check(previews.Show(source.Handle,process,cls,area,false,0),"disabling app badges restores the complete live thumbnail");previews.EndFrame();
      Check(previews.RegistrationCount==1,"disabling badges releases every extra thumbnail fragment");
@@ -376,17 +405,43 @@ namespace BioPager {
     Check((bool)PagerField("showAppBadges").GetValue(pager)&&item.Checked,"legacy settings enable app badges on upgrade without replacing the existing preview preference");
     Check(!(bool)PagerField("showPreviews").GetValue(pager),"badge upgrade preserves an explicit disabled-preview setting");
     Check(item.Text=="Show app logo badges on previews"&&item.CheckOnClick,"app badge option is discoverable as a checkable menu item");
+    ToolStripMenuItem sizeMenu=(ToolStripMenuItem)PagerField("badgeSizeItem").GetValue(pager);
+    Check((int)PagerField("appBadgePercent").GetValue(pager)==30,"legacy settings use the larger 30 percent badge by default");
+    Check(sizeMenu.Text=="App logo badge size"&&sizeMenu.DropDownItems.Count==4,"badge size submenu exposes four percentage choices");
+    foreach(int percent in new[]{15,20,30,50}) {
+     ToolStripMenuItem choice=null;foreach(ToolStripItem child in sizeMenu.DropDownItems)if(child.Text==percent+"%")choice=(ToolStripMenuItem)child;
+     Check(choice!=null&&choice.Checked==(percent==30),"badge size menu initially marks only the 30 percent default for choice "+percent);
+    }
     item.Checked=false;
-    Check(File.ReadAllLines(settings).Length>=14&&!Boolean.Parse(File.ReadAllLines(settings)[13]),"turning badges off persists the appended setting");
+    Check(File.ReadAllLines(settings).Length>=15&&!Boolean.Parse(File.ReadAllLines(settings)[13]),"turning badges off preserves the appended badge size setting");
     PagerField("showAppBadges").SetValue(pager,true);PagerCall(pager,"LoadSettings");
     Check(!(bool)PagerField("showAppBadges").GetValue(pager),"disabled app badge preference survives a settings reload");
+    string[] legacy=new string[14];Array.Copy(File.ReadAllLines(settings),legacy,14);File.WriteAllLines(settings,legacy);
+    PagerField("appBadgePercent").SetValue(pager,15);PagerCall(pager,"LoadSettings");
+    Check((int)PagerField("appBadgePercent").GetValue(pager)==30&&!(bool)PagerField("showAppBadges").GetValue(pager),"0.4.14 settings upgrade to 30 percent while preserving the disabled badge preference");
+    foreach(int percent in new[]{15,20,30,50}) {
+     ToolStripMenuItem choice=null;foreach(ToolStripItem child in sizeMenu.DropDownItems)if(child.Text==percent+"%")choice=(ToolStripMenuItem)child;
+     choice.PerformClick();
+     int checkedCount=0;foreach(ToolStripItem child in sizeMenu.DropDownItems)if(((ToolStripMenuItem)child).Checked)checkedCount++;
+     string[] saved=File.ReadAllLines(settings);
+     Check((int)PagerField("appBadgePercent").GetValue(pager)==percent&&choice.Checked&&checkedCount==1,"selecting "+percent+" percent through the real menu updates the exclusive choice");
+     Check(saved.Length==15&&saved[14]==percent.ToString()&&!Boolean.Parse(saved[13]),"selecting "+percent+" percent persists its value without enabling disabled badges");
+     PagerField("appBadgePercent").SetValue(pager,-1);PagerCall(pager,"LoadSettings");
+     Check((int)PagerField("appBadgePercent").GetValue(pager)==percent,"selected "+percent+" percent badge size survives reloading settings");
+    }
+    foreach(string invalid in new[]{"25","0","100","-1","20.0","invalid",""}) {
+     string[] saved=File.ReadAllLines(settings);saved[14]=invalid;File.WriteAllLines(settings,saved);
+     PagerField("appBadgePercent").SetValue(pager,15);PagerCall(pager,"LoadSettings");
+     Check((int)PagerField("appBadgePercent").GetValue(pager)==30&&!(bool)PagerField("showAppBadges").GetValue(pager),"invalid badge size '"+invalid+"' resets to 30 percent and preserves badge visibility");
+    }
+    PagerCall(pager,"SetAppBadgePercent",30);
     item.Checked=true;PagerField("showAppBadges").SetValue(pager,false);PagerCall(pager,"LoadSettings");
     Check((bool)PagerField("showAppBadges").GetValue(pager)&&Boolean.Parse(File.ReadAllLines(settings)[13]),"re-enabling app badges persists and reloads");
 
     PagerField("showPreviews").SetValue(pager,true);
     uint process;Native.GetWindowThreadProcessId(source.Handle,out process);string cls=ClassName(source.Handle);
     WindowPreviews previews=(WindowPreviews)PagerField("previews").GetValue(pager);
-    Rectangle tile=new Rectangle(10,10,180,132),content=new Rectangle(11,11,178,118),badge=Pager.AppBadgeBounds(content,8);
+    Rectangle tile=new Rectangle(10,10,180,132),content=new Rectangle(11,11,178,118),badge=Pager.AppBadgeBounds(content,8,30);
     using(Icon icon=SolidIcon(Color.Yellow)) {
      WindowInfo app=new WindowInfo{Handle=source.Handle,Process=process,Class=cls,Title="Synthetic white app",Icon=icon};
      previews.BeginFrame();
@@ -399,6 +454,18 @@ namespace BioPager {
       Check(Near(image.GetPixel(badge.Left+badge.Width/2,badge.Top+badge.Height/2),Color.Yellow),"actual cached preview renderer overlays the app logo at the top-left");
       Check(Near(image.GetPixel(content.Right-10,content.Top+content.Height/2),Color.White),"cached window content remains visible around the app logo badge");
       SaveEvidence(image,"pager-cached-app-badge");
+     }
+     PagerCall(pager,"SetAppBadgePercent",50);badge=Pager.AppBadgeBounds(content,8,50);
+     using(Bitmap image=new Bitmap(210,160))using(Graphics graphics=Graphics.FromImage(image)) {
+      graphics.Clear(Color.Magenta);PagerCall(pager,"DrawApplication",graphics,app,tile,false,null);
+      Check(Near(image.GetPixel(badge.Right-4,badge.Top+badge.Height/2),Color.Yellow),"cached preview renderer honors the selected 50 percent badge width");
+      Check(Near(image.GetPixel(content.Left+content.Width/4,content.Bottom-8),Color.White)&&Near(image.GetPixel(content.Right-10,content.Top+content.Height/2),Color.White),"50 percent cached badge preserves the exposed window image below and beside it");
+      SaveEvidence(image,"pager-cached-app-badge-50");
+     }
+     PagerCall(pager,"SetAppBadgePercent",30);badge=Pager.AppBadgeBounds(content,8,30);
+     using(Bitmap image=new Bitmap(210,160))using(Graphics graphics=Graphics.FromImage(image)) {
+      graphics.Clear(Color.Magenta);PagerCall(pager,"DrawApplication",graphics,app,tile,false,null);
+      Check(Near(image.GetPixel(badge.Right+10,badge.Top+badge.Height/2),Color.White),"shrinking cached badge to 30 percent restores newly exposed window pixels");
      }
      PagerField("showAppBadges").SetValue(pager,false);
      using(Bitmap image=new Bitmap(210,160))using(Graphics graphics=Graphics.FromImage(image)) {
