@@ -19,10 +19,12 @@ namespace BioPager {
   [DllImport("dwmapi.dll")] static extern int DwmIsCompositionEnabled([MarshalAs(UnmanagedType.Bool)] out bool enabled);
 
   [DllImport("user32.dll")] static extern bool SetWindowDisplayAffinity(IntPtr window,uint affinity);
+  [DllImport("user32.dll")] static extern bool DestroyIcon(IntPtr icon);
 
   sealed class FixtureForm : Form {
    internal int AddExtended,RemoveExtended;
-   internal bool Pattern,SecondPattern;
+   internal bool Pattern,SecondPattern,TopStripe;
+   internal Rectangle Badge;
    internal FixtureForm() {
     AutoScaleMode=AutoScaleMode.None;
     FormBorderStyle=FormBorderStyle.None;
@@ -35,13 +37,16 @@ namespace BioPager {
    }
    protected override void OnPaint(PaintEventArgs e) {
     base.OnPaint(e);
-    if(!Pattern)return;
-    using(Brush left=new SolidBrush(SecondPattern?Color.Lime:Color.Red))
-    using(Brush right=new SolidBrush(SecondPattern?Color.Yellow:Color.Blue)) {
-     int split=ClientSize.Width/2;
-     e.Graphics.FillRectangle(left,0,0,split,ClientSize.Height);
-     e.Graphics.FillRectangle(right,split,0,ClientSize.Width-split,ClientSize.Height);
+    if(Pattern) {
+     using(Brush left=new SolidBrush(SecondPattern?Color.Lime:Color.Red))
+     using(Brush right=new SolidBrush(SecondPattern?Color.Yellow:Color.Blue)) {
+      int split=ClientSize.Width/2;
+      e.Graphics.FillRectangle(left,0,0,split,ClientSize.Height);
+      e.Graphics.FillRectangle(right,split,0,ClientSize.Width-split,ClientSize.Height);
+     }
+     if(TopStripe)e.Graphics.FillRectangle(Brushes.Cyan,0,0,ClientSize.Width,ClientSize.Height/4);
     }
+    if(!Badge.IsEmpty)e.Graphics.FillRectangle(Brushes.DarkOrange,Badge);
    }
    internal void RebuildHandle(){RecreateHandle();}
   }
@@ -106,6 +111,12 @@ namespace BioPager {
    Check(target.Contains(tall)&&tall.Width>0&&Math.Abs(tall.Width-tall.Height/3.0)<=1.1,"portrait app preview preserves its aspect ratio");
    Check(WindowPreviews.Fit(Size.Empty,target).IsEmpty&&WindowPreviews.Fit(new Size(10,10),Rectangle.Empty).IsEmpty,"invalid preview dimensions produce no draw rectangle");
    Check(WindowPreviews.ThumbnailPropertiesSize==48,"DWM thumbnail property layout matches the Win32 ABI");
+   Rectangle badge=Pager.AppBadgeBounds(new Rectangle(11,23,200,100),8);
+   Check(badge.Left>=11&&badge.Top>=23&&badge.Right<=211&&badge.Bottom<=123&&badge.Width==badge.Height&&Math.Abs(badge.Width-30)<=1,"app badge is a top-left square approximately 15 percent of preview width");
+   Check(badge.Left<=13&&badge.Top<=25,"app badge stays at the preview's top-left corner");
+   Rectangle narrow=Pager.AppBadgeBounds(new Rectangle(10,20,20,100),12);
+   Check(narrow.Width<=10&&narrow.Height<=10&&new Rectangle(10,20,20,100).Contains(narrow),"badge minimum never consumes more than half a narrow preview");
+   Check(Pager.AppBadgeBounds(new Rectangle(0,0,6,6),12).IsEmpty&&Pager.AppBadgeBounds(Rectangle.Empty,8).IsEmpty,"tiny or empty previews omit unreadable badges");
   }
 
   static string ClassName(IntPtr window) {
@@ -186,6 +197,17 @@ namespace BioPager {
    }
    return false;
   }
+  static async Task<bool> WaitForBadgePixels(Form destination,Rectangle area,Rectangle badge,Color badgeColor,Color left,Color right,string name) {
+   for(int attempt=0;attempt<24;attempt++) {
+    await Task.Delay(75);
+    using(Bitmap image=ReadPixels(destination,area)) {
+     Color pixel=image.GetPixel(badge.Left-area.Left+badge.Width/2,badge.Top-area.Top+badge.Height/2);
+     if(Near(pixel,badgeColor)&&Matches(image,left,right)){SaveEvidence(image,name);return true;}
+     if(attempt==23)SaveEvidence(image,name+"-failed");
+    }
+   }
+   return false;
+  }
   static async Task PixelPreviews(FixtureForm source) {
    bool composition;
    if(!Environment.UserInteractive||DwmIsCompositionEnabled(out composition)!=0||!composition) {
@@ -215,6 +237,20 @@ namespace BioPager {
      source.SecondPattern=true;source.Invalidate();source.Update();
      Check(await WaitForPixels(destination,area,Color.Lime,Color.Yellow,"thumbnail-after"),"thumbnail changes with source content without changing the HWND or re-registering");
      Check(previews.RegistrationCount==1,"live source updates preserve one registration");
+
+     Rectangle badge=Pager.AppBadgeBounds(area,8);
+     destination.Badge=badge;destination.Invalidate();destination.Update();
+     previews.BeginFrame();Check(previews.Show(source.Handle,process,cls,area,false,0,null,badge),"grid live preview accepts an app badge without replacing source content");previews.EndFrame();
+     Check(previews.RegistrationCount>1&&previews.RegistrationCount<=5,"live badge uses a bounded set of disjoint thumbnail fragments");
+     Check(await WaitForBadgePixels(destination,area,badge,Color.DarkOrange,Color.Lime,Color.Yellow,"thumbnail-badge-before"),"GDI app badge remains above live source pixels");
+     source.SecondPattern=false;source.Invalidate();source.Update();
+     Check(await WaitForBadgePixels(destination,area,badge,Color.DarkOrange,Color.Red,Color.Blue,"thumbnail-badge-after"),"badge remains visible while uncovered live source pixels update");
+     destination.Badge=Rectangle.Empty;destination.Invalidate();destination.Update();
+     previews.BeginFrame();Check(previews.Show(source.Handle,process,cls,area,false,0),"disabling app badges restores the complete live thumbnail");previews.EndFrame();
+     Check(previews.RegistrationCount==1,"disabling badges releases every extra thumbnail fragment");
+     Check(await WaitForBadgePixels(destination,area,badge,Color.Red,Color.Red,Color.Blue,"thumbnail-badge-disabled"),"turning the badge off restores source pixels at its former position");
+     source.SecondPattern=true;source.Invalidate();source.Update();
+     Check(await WaitForPixels(destination,area,Color.Lime,Color.Yellow,"thumbnail-badge-disabled-update"),"full thumbnail remains live after disabling the badge");
 
      Rectangle cover=new Rectangle(area.Left+60,area.Top,60,area.Height);
      List<Rectangle> fragments=SpatialLayout.Uncovered(area,area,new[]{cover});
@@ -270,12 +306,123 @@ namespace BioPager {
       previews.BeginFrame();Check(!previews.Show(source.Handle,process,cls,area,false,0,fragments),"Windows protected source cannot register spatial live fragments");previews.EndFrame();
       Check(previews.CachedFrameCount==0&&previews.RegistrationCount==0,"protection purges both cached pixels and every native registration");
      }finally{SetWindowDisplayAffinity(source.Handle,0);}else Skip("Windows did not allow display-affinity protection on synthetic source");
+     await PortraitBadgePixels(source,destination,previews,area);
     }
+   }
+  }
+
+  static async Task PortraitBadgePixels(FixtureForm source,FixtureForm destination,WindowPreviews previews,Rectangle area) {
+   Rectangle work=Screen.FromHandle(source.Handle).WorkingArea;
+   if(work.Height<450){Skip("decorated portrait badge check: desktop is too short for an isolated decorated source");return;}
+   using(FixtureForm portrait=Fixture("Decorated portrait preview fixture",new Rectangle(source.Left,source.Top,130,210),AppWindow,0)) {
+    // Windows enforces a native minimum caption width at the desktop DPI.
+    // A 100px request can therefore become landscape after Show().
+    portrait.FormBorderStyle=FormBorderStyle.FixedSingle;portrait.ClientSize=new Size(220,360);portrait.Pattern=true;portrait.TopStripe=true;
+    portrait.Show();portrait.Update();
+    Native.RECT client;Check(Native.GetClientRect(portrait.Handle,out client),"decorated fixture exposes a native client rectangle");
+    Console.WriteLine("INFO: decorated fixture managed client="+portrait.ClientSize+", native client="+client.Box+", outer="+portrait.Bounds);
+    if(client.R-client.L>=client.B-client.T) {
+     portrait.ClientSize=new Size(portrait.ClientSize.Width,portrait.ClientSize.Width*8/5);portrait.Invalidate();portrait.Update();
+     Check(Native.GetClientRect(portrait.Handle,out client),"resized decorated fixture exposes its final native client rectangle");
+    }
+    if(portrait.Bottom>work.Bottom-8||portrait.Right>=destination.Left-8){Skip("decorated portrait badge check: native caption sizing leaves insufficient isolated desktop space");return;}
+    Check(client.R-client.L<client.B-client.T,"decorated source is genuinely portrait after Windows applies native minimum sizes");
+    uint process;Native.GetWindowThreadProcessId(portrait.Handle,out process);string cls=ClassName(portrait.Handle);
+    Rectangle fitted=WindowPreviews.Fit(new Size(client.R-client.L,client.B-client.T),area),badge=Pager.AppBadgeBounds(fitted,8);
+    Check(fitted.Width<area.Width-8&&fitted.Height==area.Height,"decorated fixture establishes portrait letterboxing before testing badge cropping");
+    previews.BeginFrame();Check(previews.Show(portrait.Handle,process,cls,area,false,0),"decorated portrait source establishes its fitted client preview");previews.EndFrame();
+    Check(await WaitForPixels(destination,fitted,Color.Red,Color.Blue,"portrait-client-before"),"decorated portrait baseline contains client pixels without its titlebar");
+    using(Bitmap baseline=ReadPixels(destination,area)) {
+     SaveEvidence(baseline,"portrait-client-baseline");
+     destination.Badge=badge;destination.Invalidate();destination.Update();
+     previews.BeginFrame();Check(previews.Show(portrait.Handle,process,cls,area,false,0,null,badge),"decorated portrait client preview accepts an app badge");previews.EndFrame();
+     Check(await WaitForBadgePixels(destination,fitted,badge,Color.DarkOrange,Color.Red,Color.Blue,"portrait-client-badge"),"badge preserves portrait client scaling and source crops");
+     using(Bitmap image=ReadPixels(destination,area)) {
+      Check(Near(image.GetPixel(4,area.Height/2),Color.Magenta)&&Near(image.GetPixel(area.Width-5,area.Height/2),Color.Magenta),"badged portrait preview retains its original letterboxing");
+      int topX=fitted.Left-area.Left+fitted.Width*3/4,topY=fitted.Top-area.Top+fitted.Height/8;
+      Check(Near(baseline.GetPixel(topX,topY),Color.Cyan)&&Near(image.GetPixel(topX,topY),Color.Cyan),"badged client source preserves a distinct top stripe without a titlebar offset");
+      Rectangle omit=badge;omit.Inflate(2,2);int compared=0,changed=0;
+      for(int y=fitted.Top+3;y<fitted.Bottom-3;y++)for(int x=fitted.Left+3;x<fitted.Right-3;x++) {
+       // Exclude only the badge and two pattern boundaries where native
+       // thumbnail interpolation can differ by a pixel between fragments.
+       if(omit.Contains(x,y)||Math.Abs(x-(fitted.Left+fitted.Width/2))<=2||Math.Abs(y-(fitted.Top+fitted.Height/4))<=2)continue;
+       compared++;if(!Near(baseline.GetPixel(x-area.Left,y-area.Top),image.GetPixel(x-area.Left,y-area.Top)))changed++;
+      }
+      Check(compared>100&&changed<=compared/100,"decorated portrait pixels outside the badge match the unbadged fitted client image");
+     }
+    }
+    destination.Badge=Rectangle.Empty;destination.Invalidate();destination.Update();
+    previews.BeginFrame();previews.EndFrame();
+    Check(previews.RegistrationCount==0,"closing a badged portrait source releases all native thumbnails");
    }
   }
 
   static FieldInfo PagerField(string name){return typeof(Pager).GetField(name,BindingFlags.Instance|BindingFlags.NonPublic);}
   static object PagerCall(Pager pager,string name,params object[] args){return typeof(Pager).GetMethod(name,BindingFlags.Instance|BindingFlags.NonPublic).Invoke(pager,args);}
+  static Icon SolidIcon(Color color) {
+   using(Bitmap image=new Bitmap(32,32,PixelFormat.Format32bppArgb)) {
+    using(Graphics graphics=Graphics.FromImage(image))graphics.Clear(color);
+    IntPtr handle=image.GetHicon();
+    try{return (Icon)Icon.FromHandle(handle).Clone();}finally{DestroyIcon(handle);}
+   }
+  }
+  static void PagerBadges(FixtureForm source) {
+   string folder=Path.Combine(Path.GetTempPath(),"BioPagerBadges-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(folder);
+   string settings=Path.Combine(folder,"settings.txt");
+   File.WriteAllLines(settings,new[]{"240","132","False","False","0","0","True","True","False","False","200","-13170420","False"});
+   using(Pager pager=new Pager(settings))try {
+    PagerField("DeviceScale").SetValue(pager,1f);
+    ToolStripMenuItem item=(ToolStripMenuItem)PagerField("badgeItem").GetValue(pager);
+    Check((bool)PagerField("showAppBadges").GetValue(pager)&&item.Checked,"legacy settings enable app badges on upgrade without replacing the existing preview preference");
+    Check(!(bool)PagerField("showPreviews").GetValue(pager),"badge upgrade preserves an explicit disabled-preview setting");
+    Check(item.Text=="Show app logo badges on previews"&&item.CheckOnClick,"app badge option is discoverable as a checkable menu item");
+    item.Checked=false;
+    Check(File.ReadAllLines(settings).Length>=14&&!Boolean.Parse(File.ReadAllLines(settings)[13]),"turning badges off persists the appended setting");
+    PagerField("showAppBadges").SetValue(pager,true);PagerCall(pager,"LoadSettings");
+    Check(!(bool)PagerField("showAppBadges").GetValue(pager),"disabled app badge preference survives a settings reload");
+    item.Checked=true;PagerField("showAppBadges").SetValue(pager,false);PagerCall(pager,"LoadSettings");
+    Check((bool)PagerField("showAppBadges").GetValue(pager)&&Boolean.Parse(File.ReadAllLines(settings)[13]),"re-enabling app badges persists and reloads");
+
+    PagerField("showPreviews").SetValue(pager,true);
+    uint process;Native.GetWindowThreadProcessId(source.Handle,out process);string cls=ClassName(source.Handle);
+    WindowPreviews previews=(WindowPreviews)PagerField("previews").GetValue(pager);
+    Rectangle tile=new Rectangle(10,10,180,132),content=new Rectangle(11,11,178,118),badge=Pager.AppBadgeBounds(content,8);
+    using(Icon icon=SolidIcon(Color.Yellow)) {
+     WindowInfo app=new WindowInfo{Handle=source.Handle,Process=process,Class=cls,Title="Synthetic white app",Icon=icon};
+     previews.BeginFrame();
+     using(Bitmap scratch=new Bitmap(210,160))using(Graphics graphics=Graphics.FromImage(scratch))previews.TryDrawCached(graphics,app.Handle,app.Process,app.Class,content);
+     IDictionary entries=(IDictionary)typeof(WindowPreviews).GetField("entries",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(previews);
+     object entry=entries[source.Handle];Bitmap cached=new Bitmap(content.Width,content.Height);using(Graphics graphics=Graphics.FromImage(cached))graphics.Clear(Color.White);
+     entry.GetType().GetField("Frame",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(entry,cached);
+     using(Bitmap image=new Bitmap(210,160))using(Graphics graphics=Graphics.FromImage(image)) {
+      graphics.Clear(Color.Magenta);PagerCall(pager,"DrawApplication",graphics,app,tile,false,null);
+      Check(Near(image.GetPixel(badge.Left+badge.Width/2,badge.Top+badge.Height/2),Color.Yellow),"actual cached preview renderer overlays the app logo at the top-left");
+      Check(Near(image.GetPixel(content.Right-10,content.Top+content.Height/2),Color.White),"cached window content remains visible around the app logo badge");
+      SaveEvidence(image,"pager-cached-app-badge");
+     }
+     PagerField("showAppBadges").SetValue(pager,false);
+     using(Bitmap image=new Bitmap(210,160))using(Graphics graphics=Graphics.FromImage(image)) {
+      graphics.Clear(Color.Magenta);PagerCall(pager,"DrawApplication",graphics,app,tile,false,null);
+      Check(Near(image.GetPixel(badge.Left+badge.Width/2,badge.Top+badge.Height/2),Color.White),"disabling the badge restores cached content at the same position");
+     }
+     PagerField("showAppBadges").SetValue(pager,true);
+     Rectangle front=Rectangle.FromLTRB(badge.Left+badge.Width/2,badge.Top,badge.Right,badge.Bottom);
+     List<Rectangle> visible=SpatialLayout.Uncovered(tile,tile,new[]{front});
+     using(Bitmap image=new Bitmap(210,160))using(Graphics graphics=Graphics.FromImage(image))using(Region clip=new Region(Rectangle.Empty)) {
+      graphics.Clear(Color.Magenta);foreach(Rectangle part in visible)clip.Union(part);graphics.SetClip(clip,System.Drawing.Drawing2D.CombineMode.Replace);
+      PagerCall(pager,"DrawApplication",graphics,app,tile,false,visible);
+      Check(Near(image.GetPixel(badge.Left+badge.Width/4,badge.Top+badge.Height/2),Color.Yellow),"spatial cached preview draws the exposed part of its app badge");
+      Check(Near(image.GetPixel(front.Left+front.Width/2,front.Top+front.Height/2),Color.Magenta),"rear app badge obeys foreground clipping in spatial previews");
+      SaveEvidence(image,"pager-cached-app-badge-spatial-clip");
+     }
+     previews.EndFrame();
+     Check(previews.CachedFrameCount==1&&previews.RegistrationCount==0,"cached badge rendering keeps its frame without registering live surfaces");
+    }
+   }finally {
+    // Never show this pager: Shown would initialize the user's virtual desktops.
+    PagerCall(pager,"OnFormClosed",new FormClosedEventArgs(CloseReason.None));Directory.Delete(folder,true);
+   }
+  }
   static void PagerSpatial(FixtureForm source) {
    string folder=Path.Combine(Path.GetTempPath(),"BioPagerSpatial-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(folder);
    string settings=Path.Combine(folder,"settings.txt");
@@ -322,7 +469,7 @@ namespace BioPager {
    Exception failure=null;
    using(FixtureForm host=Fixture("BioPager preview test source",new Rectangle(40,40,240,160),AppWindow,0)) {
     host.Shown+=async delegate {
-     try {NativePolicy(host);PagerSpatial(host);await PixelPreviews(host);}
+     try {NativePolicy(host);PagerSpatial(host);PagerBadges(host);await PixelPreviews(host);}
      catch(Exception ex){failure=ex;}
      finally {host.Close();}
     };

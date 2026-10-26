@@ -85,6 +85,9 @@ namespace BioPager {
   // Pieces are disjoint destination rectangles with explicit source crops. DWM
   // is composed above GDI, so its own destination must exclude every front app.
   internal bool Show(IntPtr window,uint process,string className,Rectangle target,bool minimized,int cloak,List<Rectangle> pieces) {
+   return Show(window,process,className,target,minimized,cloak,pieces,Rectangle.Empty);
+  }
+  internal bool Show(IntPtr window,uint process,string className,Rectangle target,bool minimized,int cloak,List<Rectangle> pieces,Rectangle badge) {
    if(disposed)return false;
    Entry entry=FindOrCreate(window,process,className);
    if(entry==null)return false;
@@ -109,23 +112,34 @@ namespace BioPager {
     if(DwmQueryThumbnailSourceSize(entry.Thumbnail,out size)!=0||size.Width<=0||size.Height<=0) {
      Failed(entry);return false;
     }
+    bool clientOnly=pieces==null;
     Native.RECT client;
-    if(pieces==null&&!minimized&&Native.GetClientRect(window,out client)&&client.R>client.L&&client.B>client.T) {
+    if(clientOnly&&!minimized&&Native.GetClientRect(window,out client)&&client.R>client.L&&client.B>client.T) {
      size.Width=client.R-client.L;size.Height=client.B-client.T;
     }
-    Rectangle fitted=pieces==null?Fit(new Size(size.Width,size.Height),target):target;
+    Rectangle fitted=clientOnly?Fit(new Size(size.Width,size.Height),target):target;
+    // Preserve the normal fitted client image in grid mode and full-window
+    // geometry in spatial mode. Only subtract the badge after choosing that
+    // mapping: changing the target would squeeze or shift the source image.
+    if(!badge.IsEmpty) {
+     List<Rectangle> uncovered=new List<Rectangle>();
+     if(pieces==null)uncovered.AddRange(SpatialLayout.Uncovered(fitted,fitted,new[]{badge}));
+     else foreach(Rectangle part in pieces)uncovered.AddRange(SpatialLayout.Uncovered(part,part,new[]{badge}));
+     pieces=uncovered;
+    }
     if(pieces!=null) {
+     if(pieces.Count==0||pieces.Count>32){Unregister(entry);return false;}
      ThumbnailProperties hidden=new ThumbnailProperties();hidden.Flags=TnpVisible;hidden.Visible=false;
      if(DwmUpdateThumbnailProperties(entry.Thumbnail,ref hidden)!=0){Failed(entry);return false;}
      entry.Visible=false;
      while(entry.Pieces.Count>pieces.Count){int last=entry.Pieces.Count-1;DwmUnregisterThumbnail(entry.Pieces[last]);entry.Pieces.RemoveAt(last);}
      for(int i=0;i<pieces.Count;i++) {
       if(i>=entry.Pieces.Count){IntPtr part;if(DwmRegisterThumbnail(destination,window,out part)!=0||part==IntPtr.Zero){Failed(entry);return false;}entry.Pieces.Add(part);}
-      Rectangle crop=SpatialLayout.SourceCrop(pieces[i],target,new Size(size.Width,size.Height));
+      Rectangle crop=SpatialLayout.SourceCrop(pieces[i],fitted,new Size(size.Width,size.Height));
       ThumbnailProperties fragment=new ThumbnailProperties();
       fragment.Flags=TnpDestination|2|TnpOpacity|TnpVisible|TnpClientOnly;
       fragment.Destination=ToNative(pieces[i]);fragment.Source=ToNative(crop);
-      fragment.Opacity=255;fragment.Visible=true;fragment.ClientOnly=false;
+      fragment.Opacity=255;fragment.Visible=true;fragment.ClientOnly=clientOnly;
       if(DwmUpdateThumbnailProperties(entry.Pieces[i],ref fragment)!=0){Failed(entry);return false;}
      }
      entry.LiveSeen=true;return true;

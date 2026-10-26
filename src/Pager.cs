@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Jong Bhak. Licensed under BioLicense 1.0; see LICENSE.
-// BioPager 0.4.13. Created by Jong Bhak. Inspired by Vern by One Guy Coding.
+// BioPager 0.4.14. Created by Jong Bhak. Inspired by Vern by One Guy Coding.
 // Build with the .NET Framework C# compiler shipped with Windows 10/11.
 using System;
 using System.Collections.Generic;
@@ -103,7 +103,7 @@ namespace BioPager {
   DateTime nextRaise=DateTime.MinValue;
   Guid current=Guid.Empty;
   bool busy,dragging,customPosition,overTaskbar;
-  bool showTitles=true,iconGrid=true,showPreviews=true,hasUnassigned,docked,appbarRegistered,positioning,appDragging;
+  bool showTitles=true,iconGrid=true,showPreviews=true,showAppBadges=true,hasUnassigned,docked,appbarRegistered,positioning,appDragging;
   int DisplayCount { get { return desktops.Count+(hasUnassigned?1:0); } }
   uint appbarMessage,taskbarCreated;
   IntPtr dragWindow=IntPtr.Zero;
@@ -115,7 +115,7 @@ namespace BioPager {
   int downClicks;
   bool gestureActive;
   Guid pressDesktop;
-  ToolStripMenuItem titleItem,gridItem,previewItem,dockItem;
+  ToolStripMenuItem titleItem,gridItem,previewItem,badgeItem,dockItem;
   ToolStripMenuItem embedItem;
   IntPtr taskbarParent;
   bool embedded,changingEmbedding,switchPumping;
@@ -169,6 +169,8 @@ namespace BioPager {
    titleItem.CheckedChanged+=delegate {showTitles=titleItem.Checked;LayoutBar();Invalidate();SaveSettings();};menu.Items.Add(titleItem);
    previewItem=new ToolStripMenuItem("Show actual app and browser previews");previewItem.Checked=showPreviews;previewItem.CheckOnClick=true;
    previewItem.CheckedChanged+=delegate {showPreviews=previewItem.Checked;Invalidate();SaveSettings();};menu.Items.Add(previewItem);
+   badgeItem=new ToolStripMenuItem("Show app logo badges on previews");badgeItem.Checked=showAppBadges;badgeItem.CheckOnClick=true;
+   badgeItem.CheckedChanged+=delegate {showAppBadges=badgeItem.Checked;Invalidate();SaveSettings();};menu.Items.Add(badgeItem);
    gridItem=new ToolStripMenuItem("Arrange app previews in a grid (show every app)");gridItem.Checked=iconGrid;gridItem.CheckOnClick=true;
    gridItem.CheckedChanged+=delegate {iconGrid=gridItem.Checked;Invalidate();SaveSettings();};menu.Items.Add(gridItem);
    ToolStripMenuItem spatialItem=new ToolStripMenuItem("Preserve desktop positions and window overlap");
@@ -231,7 +233,7 @@ namespace BioPager {
     TextBox help=new TextBox();help.Dock=DockStyle.Fill;help.Multiline=true;
     help.ReadOnly=true;help.ScrollBars=ScrollBars.Vertical;help.BorderStyle=BorderStyle.None;
     help.BackColor=SystemColors.Control;help.ForeColor=SystemColors.ControlText;
-    help.Text="BioPager 0.4.13\nCreated by Jong Bhak\nBioLicense: free for all, including companies and AIs.\n\nInspired by Vern, created by One Guy Coding.\nIndependent implementation; no Vern code or assets used.\nDesktop API: VirtualDesktopAccessor by Jari Pennanen (MIT).\n\nWindows taskbar location: right-click > Windows taskbar location > Top or Bottom. Uses native Windows taskbar positioning where available. No ExplorerPatcher installation needed. Windows may apply the location to all taskbars.\n\nBackground color: right-click > Background color...\n\nClick a tile: direct desktop switch without the pager's transition animation. Double-click an app: focus it. Drag an app to another tile: move that window silently. Escape cancels dragging.\n\nShow actual app and browser previews: show each window's current contents, including the active browser tab. A minimized or inactive window may show its last sampled view. Content protected by Windows uses an icon or name. Samples stay in memory and are discarded when BioPager closes.\n\nArrange app previews in a grid: keep every app reachable. This is enabled when upgrading to 0.4.13. Select Preserve desktop positions and window overlap for actual geometry and front-to-back overlap across monitors. Minimized apps appear in a separate bottom strip. Fully covered apps are reachable in grid mode. Spatial live previews are cropped around front windows, including cached or protected foreground content. Larger tiles make page previews easier to recognize.\n\nOther apps: windows whose desktop is unavailable remain listed here. Click to focus; dragging is available once Windows identifies their desktop.\n\nShow desktop titles: hide/show headers. Copy window diagnostics: copy a local troubleshooting report, including window titles, only when selected.\n\nIntegrate with taskbar: show a compact always-on-top pager within the taskbar area. Drag the left grip horizontally to position it, or use Taskbar position. It can cover taskbar buttons; use Taskbar position to choose a clear area. Turn off integration to return to the floating pager. Double-click the tray icon to recover a floating pager.\n\nDock beside taskbar: a separate reserved appbar, now following the top/bottom taskbar position.\n\nDesktop helpers are detected automatically by runtime checks, without a Windows build whitelist. When no helper supports an action, switching and new desktops use Windows shortcuts; use Win+Tab for app dragging and removal. During desktop switches, Windows animation effects are temporarily disabled and then restored. The saved Windows preference is not changed.".Replace("\n",Environment.NewLine);
+    help.Text="BioPager 0.4.14\nCreated by Jong Bhak\nBioLicense: free for all, including companies and AIs.\n\nInspired by Vern, created by One Guy Coding.\nIndependent implementation; no Vern code or assets used.\nDesktop API: VirtualDesktopAccessor by Jari Pennanen (MIT).\n\nWindows taskbar location: right-click > Windows taskbar location > Top or Bottom. Uses native Windows taskbar positioning where available. No ExplorerPatcher installation needed. Windows may apply the location to all taskbars.\n\nBackground color: right-click > Background color...\n\nClick a tile: direct desktop switch without the pager's transition animation. Double-click an app: focus it. Drag an app to another tile: move that window silently. Escape cancels dragging.\n\nShow actual app and browser previews: show each window's current contents, including the active browser tab. A minimized or inactive window may show its last sampled view. Content protected by Windows uses an icon or name. Samples stay in memory and are discarded when BioPager closes.\n\nShow app logo badges on previews: overlay the app icon at the top-left, about 15% of the preview width. Badges start enabled and the choice is saved. Live or cached content stays visible around the badge. Tiny previews keep room for their content.\n\nArrange app previews in a grid: keep every app reachable. This is enabled when upgrading to 0.4.13. Select Preserve desktop positions and window overlap for actual geometry and front-to-back overlap across monitors. Minimized apps appear in a separate bottom strip. Fully covered apps are reachable in grid mode. Spatial live previews are cropped around front windows, including cached or protected foreground content. Larger tiles make page previews easier to recognize.\n\nOther apps: windows whose desktop is unavailable remain listed here. Click to focus; dragging is available once Windows identifies their desktop.\n\nShow desktop titles: hide/show headers. Copy window diagnostics: copy a local troubleshooting report, including window titles, only when selected.\n\nIntegrate with taskbar: show a compact always-on-top pager within the taskbar area. Drag the left grip horizontally to position it, or use Taskbar position. It can cover taskbar buttons; use Taskbar position to choose a clear area. Turn off integration to return to the floating pager. Double-click the tray icon to recover a floating pager.\n\nDock beside taskbar: a separate reserved appbar, now following the top/bottom taskbar position.\n\nDesktop helpers are detected automatically by runtime checks, without a Windows build whitelist. When no helper supports an action, switching and new desktops use Windows shortcuts; use Win+Tab for app dragging and removal. During desktop switches, Windows animation effects are temporarily disabled and then restored. The saved Windows preference is not changed.".Replace("\n",Environment.NewLine);
     Button close=new Button();close.Text="Close";close.AutoSize=true;
     close.Anchor=AnchorStyles.Right|AnchorStyles.Bottom;close.DialogResult=DialogResult.OK;
     layout.Controls.Add(picture,0,0);layout.Controls.Add(help,0,1);layout.Controls.Add(close,0,2);
@@ -365,6 +367,7 @@ namespace BioPager {
    using(Brush b=new SolidBrush(color))g.FillRectangle(b,r);
    int labelHeight=pieces==null&&showPreviews&&r.Height>=ScaleValue(25)&&r.Width>=ScaleValue(22)?ScaleValue(12):0;
    Rectangle content=new Rectangle(r.X+1,r.Y+1,Math.Max(0,r.Width-2),Math.Max(0,r.Height-2-labelHeight));
+   Rectangle badge=showPreviews&&showAppBadges&&w.Icon!=null?AppBadgeBounds(content,ScaleValue(8)):Rectangle.Empty;
    if(content.Width>3&&content.Height>3){
     int size=Math.Min(ScaleValue(24),Math.Min(content.Width,content.Height));
     if(w.Icon!=null&&size>=8)g.DrawIcon(w.Icon,new Rectangle(content.X+(content.Width-size)/2,content.Y+(content.Height-size)/2,size,size));
@@ -374,8 +377,9 @@ namespace BioPager {
      // rectangles, including foreground icons, cached images and borders.
      List<Rectangle> livePieces=null;
      if(pieces!=null){livePieces=new List<Rectangle>();foreach(Rectangle part in pieces){Rectangle cut=Rectangle.Intersect(part,content);if(cut.Width>0&&cut.Height>0)livePieces.Add(cut);}}
-     bool live=allowLive&&(livePieces==null||livePieces.Count<=32)&&previews.Show(w.Handle,w.Process,w.Class,pieces==null?content:r,w.Minimized,w.Cloak,livePieces);
-     if(!live)previews.TryDrawCached(g,w.Handle,w.Process,w.Class,content);
+     bool live=allowLive&&previews.Show(w.Handle,w.Process,w.Class,pieces==null?content:r,w.Minimized,w.Cloak,livePieces,badge);
+     bool cached=!live&&previews.TryDrawCached(g,w.Handle,w.Process,w.Class,content);
+     if((live||cached)&&!badge.IsEmpty)DrawAppBadge(g,w.Icon,badge);
     }
    }
    if(labelHeight>0){
@@ -385,6 +389,19 @@ namespace BioPager {
    }
    using(Pen border=new Pen(w.Minimized?Color.FromArgb(180,183,193):Color.FromArgb(203,207,217)))g.DrawRectangle(border,r.X,r.Y,r.Width-1,r.Height-1);
    if(w.Minimized&&labelHeight==0&&r.Height>=5)g.DrawLine(Pens.White,r.Left+2,r.Bottom-3,r.Right-2,r.Bottom-3);
+  }
+  internal static Rectangle AppBadgeBounds(Rectangle content,int minimumSize) {
+   // About 15% of the preview width. A small readability minimum is bounded
+   // by half the shorter edge so the badge never replaces a tiny preview.
+   int size=Math.Min(Math.Min(content.Width,content.Height)/2,Math.Max(minimumSize,(int)Math.Round(content.Width*0.15)));
+   return size<4?Rectangle.Empty:new Rectangle(content.Left,content.Top,size,size);
+  }
+  static void DrawAppBadge(Graphics g,Icon icon,Rectangle badge) {
+   // DWM destinations exclude this small opaque plate. Transparent icon
+   // pixels therefore retain contrast without hiding the rest of the image.
+   g.FillRectangle(Brushes.White,badge);
+   g.DrawRectangle(Pens.DimGray,badge.X,badge.Y,badge.Width-1,badge.Height-1);
+   Rectangle logo=badge;logo.Inflate(-1,-1);g.DrawIcon(icon,logo);
   }
   void DrawInitials(Graphics g,string title,Rectangle rect) {
    if(rect.Width<8||rect.Height<8)return;
@@ -677,12 +694,13 @@ namespace BioPager {
     // First upgrade enables disjoint previews so every app can be seen. Later
     // launches preserve the user's chosen preview and arrangement settings.
     if(v.Length>=13)showPreviews=Boolean.Parse(v[12]);else{showPreviews=true;iconGrid=true;}
+    bool badges;showAppBadges=v.Length<14||!Boolean.TryParse(v[13],out badges)||badges;
    }catch{customPosition=false;}
   }
   void SaveSettings() {
    try{
     Directory.CreateDirectory(Path.GetDirectoryName(settings));
-    File.WriteAllLines(settings,new string[]{tileWidth.ToString(),tileHeight.ToString(),customPosition.ToString(),overTaskbar.ToString(),Left.ToString(),Top.ToString(),showTitles.ToString(),iconGrid.ToString(),docked.ToString(),embedded.ToString(),embedOffset.ToString(),backgroundColor.ToArgb().ToString(),showPreviews.ToString()});
+    File.WriteAllLines(settings,new string[]{tileWidth.ToString(),tileHeight.ToString(),customPosition.ToString(),overTaskbar.ToString(),Left.ToString(),Top.ToString(),showTitles.ToString(),iconGrid.ToString(),docked.ToString(),embedded.ToString(),embedOffset.ToString(),backgroundColor.ToArgb().ToString(),showPreviews.ToString(),showAppBadges.ToString()});
    }catch(Exception ex){Debug.WriteLine(ex);}
   }
   protected override void OnFormClosed(FormClosedEventArgs e) {

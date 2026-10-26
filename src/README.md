@@ -1,4 +1,6 @@
-# BioPager 0.4.12
+# BioPager 0.4.14
+
+Right-click and toggle **Show app logo badges on previews**. The choice starts enabled and saves across restarts. Each available app icon overlays the top-left of its live or cached preview at about 15% of the preview width, bounded to keep tiny previews visible. Spatial badges follow the same overlap clipping as their windows. Grid previews retain their fitted client image. Exit the previous BioPager before running the new portable executable.
 
 Created by Jong Bhak. BioLicense: free for all, including companies and AIs.
 

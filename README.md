@@ -1,3 +1,7 @@
+## App logo badges in 0.4.14 (review branch)
+
+Right-click and toggle **Show app logo badges on previews** to identify white or similar-looking windows. The saved option starts enabled. A small app icon at the top-left, about 15% of the preview width, overlays the live or cached image. Grid fitting and spatial overlap remain intact. See [0.4.14 release notes](RELEASE_NOTES_0.4.14.md). Use the 0.4.14 portable build; the historical root executable is unchanged.
+
 ## Spatial previews in 0.4.13 (review branch)
 
 Right-click and choose **Preserve desktop positions and window overlap** for desktop geometry and foreground occlusion. Choose **Arrange app previews in a grid (show every app)** to return to the grid. The selection persists. Minimized apps occupy a separate strip. See [0.4.13 release notes](RELEASE_NOTES_0.4.13.md) for behavior, validation and limitations. Use the 0.4.13 portable download from the review PR; the historical root executable is unchanged.
