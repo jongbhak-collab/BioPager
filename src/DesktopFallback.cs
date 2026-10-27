@@ -75,7 +75,8 @@ namespace BioPager {
      await Task.Delay(750);
      if(cancelled)return 90;
      if(!Same(after,ids())||current()!=after[before.Count])return 12;
-     return await Switch(original);
+     int restored=await Switch(original);
+     return restored==0||restored==90?restored:32;
     }
     if(!Same(before,after))return 12;
     await Task.Delay(20);

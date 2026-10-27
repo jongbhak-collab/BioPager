@@ -11,11 +11,12 @@ namespace BioPager {
  internal static class Tests {
   [DllImport("user32.dll",EntryPoint="SetWindowLongW")] static extern int SetWindowLong(IntPtr h,int index,int value);
   static int fakeCount,creates;
+  static int refuseCreateAt=Int32.MaxValue;
   static bool refuse;
   static Guid fakeSource=Guid.NewGuid(),fakeNext=Guid.NewGuid();
   static int FakeCount(){return fakeCount;}
   static int FakeCurrent(){return 0;}
-  static int FakeCreate(){creates++;return fakeCount++;}
+  static int FakeCreate(){creates++;if(fakeCount>=refuseCreateAt)return -1;return fakeCount++;}
   static Guid FakeId(int i){return i==0?fakeSource:i==1?fakeNext:new Guid(i,0,0,new byte[8]);}
   static int FakeRemove(int i,int t){if(refuse)return -1;fakeCount--;return 1;}
   static void Bind(string field,string method){FieldInfo f=typeof(MoveWorker).GetField(field,BindingFlags.Static|BindingFlags.NonPublic);f.SetValue(null,Delegate.CreateDelegate(f.FieldType,typeof(Tests).GetMethod(method,BindingFlags.Static|BindingFlags.NonPublic)));}
@@ -25,7 +26,7 @@ namespace BioPager {
    PreviewTests.Unit();
    Check(WindowsCompatibility.Candidates().Length==5&&WindowsCompatibility.Candidates()[0]=="modern","adapter candidates are independent of Windows build numbers");
    Check(!WindowsCompatibility.IsBackend("unexpected")&&WindowsCompatibility.IsBackend("legacy21"),"only embedded known adapters may be probed");
-   foreach(int code in new[]{12,22,23,28,40,91,93})Check(!DesktopFallback.CanFallback(code),"no automatic shortcut after uncertain result "+code);
+   foreach(int code in new[]{12,22,23,28,32,40,91,93})Check(!DesktopFallback.CanFallback(code),"no automatic shortcut after uncertain result "+code);
    Check(Marshal.SizeOf(typeof(Native.INPUT))==40,"x64 SendInput uses the complete 40-byte INPUT union");
    Bind("count","FakeCount");Bind("createDesktop","FakeCreate");Bind("id","FakeId");Bind("removeDesktop","FakeRemove");
    Bind("currentNumber","FakeCurrent");fakeCount=1;
@@ -44,8 +45,12 @@ namespace BioPager {
    try{
     ProfileSetup profile=new ProfileSetup(folder,false);Check(profile.Pending&&profile.Unstarted,"fresh profile is distinct from an attempted setup");
     profile.Begin();Check(!new ProfileSetup(folder,false).Unstarted,"setup intent is persisted before OS mutation");
+    fakeCount=1;creates=0;refuseCreateAt=4;
+    Check((int)Call("EnsureMinimum",7)==28&&fakeCount==4,"failed onboarding stops at its confirmed partial count");
     File.WriteAllText(Path.Combine(folder,"settings.txt"),"saved");
     Check(new ProfileSetup(folder,true).Pending,"failed first setup remains pending after settings save");
+    refuseCreateAt=Int32.MaxValue;int attempted=creates;
+    Check((int)Call("EnsureMinimum",7)==0&&fakeCount==7&&creates==attempted+3,"retry adds only the three missing desktops after a partial setup");
     profile.Complete();Check(!new ProfileSetup(folder,true).Pending,"completed setup does not run again");
     string legacy=Path.Combine(folder,"legacy");Check(!new ProfileSetup(legacy,true).Pending,"upgrading existing users skips default desktop creation");
     Check(!new ProfileSetup(legacy,false).Pending,"established profile marker survives missing settings");

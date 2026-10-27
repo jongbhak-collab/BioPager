@@ -242,12 +242,13 @@ namespace BioPager {
     case 22:return "The embedded helper failed verification. Replace BioPager.exe with a fresh copy of this release.";
     case 24:return "This app is shown on all desktops. Turn that option off in Win+Tab before moving it.";
     case 25:return "Windows refused to move this window. It may be protected or elevated. Try Win+Tab.";
-    case 26:return "Windows did not confirm the move. Check the app in Win+Tab.";
+    case 26:return "Windows did not confirm the desktop switch or window move. Check Win+Tab before retrying.";
     case 27:return "The last desktop must be kept.";
     case 28:return "Windows did not confirm the new desktop. Check Task View before trying again.";
     case 29:return "Windows refused to remove this desktop; its apps remain open. Try Task View.";
     case 30:return "Desktop removal was not confirmed. Check Task View before trying again.";
     case 31:return "Keyboard input was blocked or incomplete. Release Ctrl, Alt, Shift and Windows keys. Check Win+Tab before retrying; an elevated foreground app can block input.";
+    case 32:return "Windows created the desktop, but returning to the previous desktop was not confirmed. Open Win+Tab to return; do not create another desktop just to return.";
     case 92:return "Another desktop change is in progress. Try again shortly.";
     case 93:return "The helper stopped during the operation. Windows may already have applied it. Check Win+Tab before retrying; no extra shortcut was sent.";
     case 91:return "The desktop helper timed out. Check Task View before retrying.";
