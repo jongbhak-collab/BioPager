@@ -8,27 +8,61 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Compile portable executable
         shell: cmd
         working-directory: src
         run: Build.cmd
+      - name: Read executable version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Item src/BioPager.exe).VersionInfo.FileVersion
+          "version=$version" >> $env:GITHUB_OUTPUT
       - name: Run regression and window-selection checks
-        shell: cmd
+        shell: pwsh
         working-directory: src
-        run: BuildTests.cmd --unit
+        run: |
+          & cmd /d /c 'BuildTests.cmd --unit' 2>&1 | Tee-Object -FilePath unit-test-results.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed' }
       - name: Check real Windows app windows and live preview pixels
-        shell: cmd
+        shell: pwsh
         working-directory: src
         env:
           BIOPAGER_TEST_ARTIFACTS: ${{ github.workspace }}\preview-evidence
-        run: BioPagerTests.exe --window-tests
+        run: |
+          & .\BioPagerTests.exe --window-tests 2>&1 | Tee-Object -FilePath window-test-results.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Native window tests failed' }
+      - name: Package reproducible source and build details
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path source-package/src -Force | Out-Null
+          Get-ChildItem src -File | Where-Object { $_.Extension -in @('.cs', '.cmd', '.md') -or $_.Name -eq 'LICENSE' } | Copy-Item -Destination source-package/src
+          Copy-Item src/assets, src/native -Destination source-package/src -Recurse
+          Copy-Item README.md, RELEASE_NOTES*.md -Destination source-package
+          @("Commit: ${{ github.sha }}", "Version: ${{ steps.version.outputs.version }}", "Executable SHA256: $((Get-FileHash src/BioPager.exe -Algorithm SHA256).Hash)") | Set-Content source-package/BUILD_INFO.txt
+          Copy-Item source-package/BUILD_INFO.txt src/BUILD_INFO.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: BioPager-1.0-windows-x64
-          path: src/BioPager.exe
+          name: BioPager-${{ steps.version.outputs.version }}-windows-x64
+          path: |
+            src/BioPager.exe
+            src/BUILD_INFO.txt
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BioPager-${{ steps.version.outputs.version }}-source
+          path: source-package
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: BioPager-1.0-preview-evidence
-          path: preview-evidence
+          name: BioPager-${{ steps.version.outputs.version }}-test-evidence
+          path: |
+            preview-evidence
+            src/unit-test-results.txt
+            src/window-test-results.txt
+            src/build.log
           if-no-files-found: ignore
