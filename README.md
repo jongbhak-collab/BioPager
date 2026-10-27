@@ -1,100 +1,25 @@
-## BioPager 1.0: selectable app logo sizes
-
-Right-click BioPager or its tray icon, open **App logo badge size**, and choose **15%**, **20%**, **30%**, or **50%**. The saved choice starts at **30%** and applies to live and cached previews. Large top-left badges retain the surrounding window content and follow spatial overlap. See [1.0 release notes](RELEASE_NOTES_1.0.md). The same size update is also available in the 0.4.15 build.
-
-## App logo badges in 0.4.14 (review branch)
-
-Right-click and toggle **Show app logo badges on previews** to identify white or similar-looking windows. The saved option starts enabled. A small app icon at the top-left, about 15% of the preview width, overlays the live or cached image. Grid fitting and spatial overlap remain intact. See [0.4.14 release notes](RELEASE_NOTES_0.4.14.md). Use the 0.4.14 portable build; the historical root executable is unchanged.
-
-## Spatial previews in 0.4.13 (review branch)
-
-Right-click and choose **Preserve desktop positions and window overlap** for desktop geometry and foreground occlusion. Choose **Arrange app previews in a grid (show every app)** to return to the grid. The selection persists. Minimized apps occupy a separate strip. See [0.4.13 release notes](RELEASE_NOTES_0.4.13.md) for behavior, validation and limitations. Use the 0.4.13 portable download from the review PR; the historical root executable is unchanged.
-
-# BioPager 0.4.12
+# BioPager 1.0.1
 
 Created by Jong Bhak. BioLicense: free for all, including companies and AIs.
 
-## Actual app and browser previews (0.4.12)
+This patch fixes the Windows Input Experience helper appearing as a blue window in **Other apps**, while preserving the 1.0 features: live app/browser previews, actual desktop positions and overlap, grid mode, top-left app logos with selectable 15%, 20%, 30% or 50% sizes, app dragging, foreground focus and taskbar integration.
 
-BioPager now shows the contents of application windows. Chrome and other browser
-windows show their active page; switching a tab updates the live preview. Separate
-browser windows have separate previews. Background tabs are not separate desktop
-windows.
+## Download and install
 
-The upgrade enables **Show actual app and browser previews** and **Arrange app
-previews in a grid (show every app)**. Existing position, taskbar integration,
-background color, and desktop-title preferences are retained. The grid makes
-windows individually reachable. Turn off the grid for the previous spatial
-arrangement, which uses cached pictures and icons to preserve overlap order.
+Use the **BioPager-1.0.1.0-windows-x64** artifact from the completed **Build BioPager** workflow for branch `fix/input-helper-1.0.1`. It contains the portable `BioPager.exe` and build identity/hash information. The workflow also uploads matching source and test evidence. The historical root `BioPager.exe` has not been replaced and is not this patched build.
 
-Visible application windows with hidden owners or explicit application-window
-styles are included. Untitled windows get a process-name label. Missing icons are
-retried and have window-class/executable fallbacks. If Windows cannot identify an
-application's virtual desktop, it remains visible in **Other apps**; click to
-focus it. Dragging is enabled once its desktop is known.
+Exit the running BioPager, extract the new package, replace the executable and start it again. Existing layout, badge and taskbar preferences are retained. File Properties > Details shows version **1.0.1.0**; the inherited Help heading is the 1.0 product-series heading.
 
-Live previews use Windows DWM. A small in-memory cache samples the unobscured
-foreground app at most once a second for use when it is minimized or on another
-desktop. It does not activate, restore, or move windows to capture them. Sampling
-is skipped if another window obscures the app, geometry changes, or Windows
-reports capture protection. No sampled image is written to disk or uploaded.
-The cache is limited to 64 images of at most 320 by 180 pixels. Unavailable
-previews retain a recognizable icon or colored name label, never an unlabeled
-grey placeholder. Protected and secure-desktop contents cannot be promised as
-previews; a minimized/background window may show its last view rather than new
-content.
+## What is filtered
 
-**Copy window diagnostics** copies the latest inclusion/exclusion report to the
-local clipboard only when requested. The report contains window titles, so review
-it before sharing it.
+The window catalog recognizes the input helper by window class and known Windows SystemApps executable location. A restricted Korean/English caption fallback is used only when the image path is unavailable and the window also has the reported unresolved-desktop, shell-cloaked, non-app popup signature. This changes BioPager's list only: Windows input services continue running untouched.
 
-The Windows workflow compiles with warnings as errors, runs existing regression
-checks plus app-selection tests, and checks real DWM thumbnail pixels using
-synthetic windows. The live-pixel check explicitly reports a skip when no usable
-interactive compositor is available. Actual MobaXterm, Gemini, and Chrome behavior
-still requires verification on the target Windows desktop.
+Settings and normal applications are not excluded simply because they use CoreWindow or belong to another desktop. The **Other apps** group remains for genuinely unresolved application windows, and disappears when none remain. Diagnostics now explain the exclusion and include executable metadata when available.
 
-Exit the running BioPager before replacing `BioPager.exe`. The executable remains
-portable and includes the native desktop helpers.
+See [1.0.1 release notes](RELEASE_NOTES_1.0.1.md) for exact behavior and validation scope, [1.0 release notes](RELEASE_NOTES_1.0.md) for badge sizes, and [the existing feature/build documentation](src/README.md) for earlier features and platform limitations.
 
-## Native taskbar Top / Bottom (0.4.9)
+## Build and tests
 
-Right-click BioPager or its tray icon, select **Windows taskbar location**, then **Top** or **Bottom**. No ExplorerPatcher or Windhawk installation is required. Before any change, BioPager warns that some Windows 11 releases may not support it and recommends installing and using ExplorerPatcher independently if needed. Choose OK to try or Cancel to leave settings unchanged.
+Run `src/Build.cmd` on Windows x64. Run `src/BuildTests.cmd --unit` for targeted input-filter checks plus regression tests, and `src/BioPagerTests.exe --window-tests` for synthetic native-window and thumbnail/overlap/badge pixel tests. The source archive includes the native payloads and assets needed for an offline build. The CI workflow has read-only repository permission and does not auto-merge or publish a release.
 
-This implementation uses Windows' native taskbar location setting and shell notification. **Your Windows installation must have native taskbar positioning available and enabled by Microsoft's rollout.** Check Settings > Personalization > Taskbar > Taskbar behaviors for Taskbar position. Older Windows 11 installations without the feature cannot acquire it through a simple setting change. BioPager does not add Explorer hooks or replace the taskbar.
-
-BioPager verifies the shell-reported location. On failure it restores the prior registry value and requests the prior location; it reports if restoration cannot be confirmed. Concurrent setting changes are preserved. Disable automatic taskbar hiding before using Top. Windows may apply this setting to all displayed taskbars; it is not a per-monitor feature.
-
-**BioPager position within taskbar...** moves the pager within the taskbar, separately from moving the Windows taskbar.
-
-## Build
-
-On Windows x64, run `Build.cmd` in this source folder. All required assets and native desktop helpers are included. The single compiled BioPager.exe needs no adjacent files. Run BuildTests.cmd for the regression suite.
-
-## Validation
-
-Interactive Windows tests remain required: Top/Bottom with native positioning enabled, unsupported-feature rollback, Start/Search/flyouts, restart persistence, multi-monitor placement, and floating/docked/integrated BioPager modes. Compilation and existing desktop unit checks do not establish taskbar behavior.
-
-## Implementation references
-
-Microsoft announced native taskbar positioning in https://blogs.windows.com/windows-insider/2026/05/15/improving-windows-quality-making-taskbar-and-start-more-personal/ .
-
-The native setting and message protocol were checked against https://github.com/ramensoftware/windhawk-mods/blob/main/mods/taskbar-on-top.wh.cpp : `Explorer\Advanced\TaskbarLocation` stores the screen edge, and message `0x5CA`, operation 6, asks the shell to apply it. This is a private interface and may change. No Windhawk or ExplorerPatcher source or binaries are incorporated into this feature.
-
-## Instant desktop switching (0.4.9)
-
-BioPager temporarily disables Windows client-area animation effects around desktop tile switches, including keyboard fallback, and restores the prior session setting afterward. The saved Windows preference is not changed. Other applications may briefly observe effects being disabled during a switch. If BioPager is forcibly terminated mid-switch, effects may stay disabled for that session; re-enable Animation effects in Windows Accessibility > Visual effects. Visual transition behavior still requires verification on Windows.
-
-## Runtime desktop compatibility (0.4.11)
-
-Automatic isolated helper probing replaces the Windows version whitelist. Available
-actions are checked separately, and keyboard fallback remains for switching and
-creation. The existing 0.4.9 UI, taskbar options and animation handling are preserved.
-Direct app dragging and switching passed live tests on build 26300.9550. See
-COMPATIBILITY.md and VALIDATION.txt for behavior, test evidence and limitations.
-
-Exit your running BioPager before replacing its EXE with this version.
-
-
-## Foreground focus fix (0.4.11)
-After switching desktops, BioPager activates the frontmost eligible app so typing can resume without an extra click. Explicit app selections prefer their active modal dialog. Hidden, minimized, shell and non-activating windows are skipped. Compilation and unit tests do not replace interactive Telegram keyboard-focus testing.
+The user's original diagnostic log and screenshots are not included in this repository or the uploaded test fixtures.

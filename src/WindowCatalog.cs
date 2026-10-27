@@ -23,6 +23,7 @@ namespace BioPager {
    internal DateTime NextIcon,NextMetadata;
   }
   readonly Dictionary<IntPtr,Entry> entries=new Dictionary<IntPtr,Entry>();
+  readonly string windowsDirectory=Environment.GetFolderPath(Environment.SpecialFolder.Windows);
   bool disposed;
   internal string Diagnostics { get; private set; }
 
@@ -80,14 +81,14 @@ namespace BioPager {
    if(disposed)throw new ObjectDisposedException("WindowCatalog");
    List<WindowInfo> result=new List<WindowInfo>();
    HashSet<IntPtr> seen=new HashSet<IntPtr>();
-   StringBuilder diagnostics=new StringBuilder("BioPager window scan (UTC): "+DateTime.UtcNow.ToString("u")+Environment.NewLine);
-   diagnostics.AppendLine("IN/OUT  HWND  PID  class  owner  styles  cloak  desktop  title  reason");
+   StringBuilder diagnostics=new StringBuilder("BioPager "+typeof(WindowCatalog).Assembly.GetName().Version+" window scan (UTC): "+DateTime.UtcNow.ToString("u")+Environment.NewLine);
+   diagnostics.AppendLine("IN/OUT  HWND  PID  class  owner  styles  cloak  desktop  title  process  image  reason");
    Stopwatch iconBudget=Stopwatch.StartNew();
-   int diagnosticLines=0,fileIconReads=0;
+   int diagnosticLines=0,fileIconReads=0,inputHelpers=0;
    // Free closed HWNDs before admitting new ones to the bounded cache.
    foreach(IntPtr handle in new List<IntPtr>(entries.Keys))if(!Native.IsWindow(handle))Remove(handle);
    Native.EnumWindows(delegate(IntPtr handle,IntPtr unused) {
-    uint pid=0;string cls="",title="";IntPtr owner=IntPtr.Zero;
+    uint pid=0;string cls="",title="",processName="",imagePath="";IntPtr owner=IntPtr.Zero;
     int style=0,extendedStyle=0,cloak=0;Guid desktop=Guid.Empty;
     string reason=null;
     try {
@@ -112,8 +113,9 @@ namespace BioPager {
       if(entries.Count<MaxCachedWindows){entries.Add(handle,entry);cached=true;}
      }
      seen.Add(handle);
-     try{ReadMetadata(entry);}catch(Exception){} // Optional metadata never decides inclusion.
-     title=DisplayTitle(title,entry.Name,cls);
+     try{ReadMetadata(entry);}catch(Exception){} // Metadata failure alone never excludes an app.
+     processName=entry.Name;imagePath=entry.ImagePath;
+     string rawTitle=title;title=DisplayTitle(title,entry.Name,cls);
 
      Guid direct=Guid.Empty,ownerDesktop=Guid.Empty;
      bool currentKnown=false,onCurrent=false,inferred;
@@ -130,6 +132,9 @@ namespace BioPager {
      }
      desktop=SelectDesktop(direct,ownerDesktop,entry.Desktop,desktops,current,currentKnown,onCurrent,cloak,out inferred);
      if(desktop!=Guid.Empty)entry.Desktop=desktop;
+     reason=InputWindowPolicy.ExclusionReason(cls,rawTitle,entry.Name,entry.ImagePath,
+      windowsDirectory,desktop,style,extendedStyle,cloak);
+     if(reason!=null){inputHelpers++;return true;}
 
      bool minimized=Native.IsIconic(handle);
      Rectangle bounds=WindowBounds(handle,minimized,extendedStyle);
@@ -153,13 +158,15 @@ namespace BioPager {
        .Append(" pid=").Append(pid).Append(" class=").Append(Clean(cls)).Append(" owner=0x").Append(owner.ToInt64().ToString("X"))
        .Append(" style=0x").Append(style.ToString("X8")).Append(" ex=0x").Append(extendedStyle.ToString("X8"))
        .Append(" cloak=").Append(cloak).Append(" desktop=").Append(desktop)
-       .Append(" title=\"").Append(Clean(title)).Append("\" ").AppendLine(reason??"unknown");
+       .Append(" title=\"").Append(Clean(title)).Append("\" process=\"").Append(Clean(processName))
+       .Append("\" image=\"").Append(Clean(imagePath)).Append("\" ").AppendLine(reason??"unknown");
      }
     }
     return true;
    },IntPtr.Zero);
    foreach(IntPtr handle in new List<IntPtr>(entries.Keys))if(!seen.Contains(handle))Remove(handle);
    if(diagnosticLines>MaxDiagnosticLines)diagnostics.AppendLine("Additional diagnostic rows omitted.");
+   diagnostics.AppendLine("Filtered Windows input helpers: "+inputHelpers);
    diagnostics.AppendLine("Included applications: "+result.Count);
    Diagnostics=diagnostics.ToString();
    OrderFrontToBack(result);return result;
