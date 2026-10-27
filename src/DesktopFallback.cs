@@ -49,7 +49,12 @@ namespace BioPager {
     if(!shortcut((ushort)(direction>0?0x27:0x25)))return 31;
     bool done=false;for(int n=0;n<250;n++){if(cancelled)return 90;if(!Same(layout,ids()))return 12;if(current()==next){done=true;break;}await Task.Delay(20);}
     if(!done)return 26;
+    // Explorer publishes the current GUID before its transition finishes.
+    // A following shortcut during that transition may be silently discarded.
+    await Task.Delay(750);
+    if(cancelled)return 90;
     if(!Same(layout,ids()))return 12;
+    if(current()!=next)return 12;
     from+=direction;
    }
    return 0;
@@ -67,6 +72,9 @@ namespace BioPager {
      if(before.Contains(after[before.Count]))return 12;
      // Acknowledge the shortcut's switch before restoring the old desktop.
      if(current()!=after[before.Count]){await Task.Delay(20);continue;}
+     await Task.Delay(750);
+     if(cancelled)return 90;
+     if(!Same(after,ids())||current()!=after[before.Count])return 12;
      return await Switch(original);
     }
     if(!Same(before,after))return 12;

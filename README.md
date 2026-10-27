@@ -1,14 +1,18 @@
-# BioPager 1.0.1
+# BioPager 1.1.1
 
 Created by Jong Bhak. BioLicense: free for all, including companies and AIs.
 
-This patch fixes the Windows Input Experience helper appearing as a blue window in **Other apps**, while preserving the 1.0 features: live app/browser previews, actual desktop positions and overlap, grid mode, top-left app logos with selectable 15%, 20%, 30% or 50% sizes, app dragging, foreground focus and taskbar integration.
+Fixes fresh-account desktop creation and initializes eligible new profiles to **seven Windows virtual desktops total**. Existing BioPager settings, completed setup and established multi-desktop workspaces keep their layout. Failed first setup remains pending and can safely resume after checking Task View. No existing desktop is removed by onboarding.
 
 ## Download and install
 
-Use the **BioPager-1.0.1.0-windows-x64** artifact from the completed **Build BioPager** workflow for branch `fix/input-helper-1.0.1`. It contains the portable `BioPager.exe` and build identity/hash information. The workflow also uploads matching source and test evidence. The historical root `BioPager.exe` has not been replaced and is not this patched build.
+[PR #9](https://github.com/jongbhak-collab/BioPager/pull/9) contains the review branch and links to validated downloads. In its successful **Build BioPager** run, download **BioPager-1.1.1-setup**, extract the ZIP and run **BioPager-Setup-1.1.1.exe**. **BioPager-1.1.1-portable**, matching source and test evidence are also available. GitHub Actions artifact downloads may require sign-in and expire according to repository retention.
 
-Exit the running BioPager, extract the new package, replace the executable and start it again. Existing layout, badge and taskbar preferences are retained. File Properties > Details shows version **1.0.1.0**; the inherited Help heading is the 1.0 product-series heading.
+Setup installs offline into `%LOCALAPPDATA%\Programs\BioPager`, includes usage instructions and an offline Quick Start guide, and upgrades the managed installation in place while preserving preferences. There is no need to uninstall first. The historical root `BioPager.exe` is not this build.
+
+Right-click the pager for **New desktop** or **Retry initial seven-desktop setup**. Check Win+Tab after an unconfirmed operation before retrying. BioPager verifies OS desktop identities and count before reporting success, and does not repeat uncertain keyboard or native mutations automatically.
+
+The 1.0.1 input-helper correction, spatial live previews, grid mode, app-logo sizes, dragging, focus handling and saved settings remain included. See [1.1.1 release notes](RELEASE_NOTES_1.1.1.md) for compatibility, profile behavior and test limits, and [installer details](installer/README.md) for setup and upgrade behavior.
 
 ## What is filtered
 
