@@ -244,7 +244,7 @@ namespace BioPager {
     case 28:return "Windows did not confirm the new desktop. Check Task View before trying again.";
     case 29:return "Windows refused to remove this desktop; its apps remain open. Try Task View.";
     case 30:return "Desktop removal was not confirmed. Check Task View before trying again.";
-    case 31:return "Release Ctrl, Alt, Shift and Windows keys, then try again. Windows may also block keyboard input to an elevated app.";
+    case 31:return "Keyboard input was blocked or incomplete. Release Ctrl, Alt, Shift and Windows keys. Check Win+Tab before retrying; an elevated foreground app can block input.";
     case 92:return "Another desktop change is in progress. Try again shortly.";
     case 93:return "The helper stopped during the operation. Windows may already have applied it. Check Win+Tab before retrying; no extra shortcut was sent.";
     case 91:return "The desktop helper timed out. Check Task View before retrying.";

@@ -130,6 +130,12 @@ namespace BioPager {
      Application.Run(pager);
     }
     if(failure!=null)throw failure;
+    string established=Path.Combine(folder,"established","settings.txt");
+    using(Pager pager=new Pager(established)){
+     pager.Shown+=async delegate {await Task.Delay(2000);try{Check(Ids().Count==7&&!new ProfileSetup(Path.GetDirectoryName(established),false).Pending,"established workspace without BioPager settings is preserved");}catch(Exception ex){failure=ex;}finally{pager.Close();}};
+     Application.Run(pager);
+    }
+    if(failure!=null)throw failure;
     return 0;
    }finally{
     // Only remove identities absent before this isolated test. Never remove originals.
@@ -254,6 +260,7 @@ namespace BioPager {
     }
     if(failure!=null)throw failure;
     string uiFolder=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"ui-test-"+Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(uiFolder);File.WriteAllText(Path.Combine(uiFolder,"settings.txt"),"");
     using(Pager pager=new Pager(Path.Combine(uiFolder,"settings.txt"))){
      pager.Shown+=async delegate {try{await Ui(pager);}catch(Exception ex){failure=ex;}finally{pager.Close();}};
      Application.Run(pager);
