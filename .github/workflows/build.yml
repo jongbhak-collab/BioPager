@@ -14,19 +14,13 @@ jobs:
         shell: cmd
         working-directory: src
         run: Build.cmd
-      - name: Read executable version
-        id: version
-        shell: pwsh
-        run: |
-          $version = (Get-Item src/BioPager.exe).VersionInfo.FileVersion
-          "version=$version" >> $env:GITHUB_OUTPUT
       - name: Run regression and window-selection checks
         shell: pwsh
         working-directory: src
         run: |
           & cmd /d /c 'BuildTests.cmd --unit' 2>&1 | Tee-Object -FilePath unit-test-results.txt
           if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed' }
-      - name: Check real Windows app windows and live preview pixels
+      - name: Check real Windows app windows and preview pixels
         shell: pwsh
         working-directory: src
         env:
@@ -34,34 +28,50 @@ jobs:
         run: |
           & .\BioPagerTests.exe --window-tests 2>&1 | Tee-Object -FilePath window-test-results.txt
           if ($LASTEXITCODE -ne 0) { throw 'Native window tests failed' }
-      - name: Package reproducible source and build details
+      - name: Build self-contained Windows installer
+        shell: pwsh
+        run: |
+          & ./installer/BuildInstaller.ps1 *>&1 | Tee-Object installer-build.log
+      - name: Test install upgrade repair and uninstall
+        shell: pwsh
+        run: |
+          & ./installer/TestInstaller.ps1 *>&1 | Tee-Object installer-tests.log
+      - name: Package source and checksums
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          New-Item -ItemType Directory -Path source-package/src -Force | Out-Null
+          New-Item -ItemType Directory -Path source-package/src, source-package/installer -Force | Out-Null
           Get-ChildItem src -File | Where-Object { $_.Extension -in @('.cs', '.cmd', '.md') -or $_.Name -eq 'LICENSE' } | Copy-Item -Destination source-package/src
           Copy-Item src/assets, src/native -Destination source-package/src -Recurse
+          Get-ChildItem installer -File | Copy-Item -Destination source-package/installer
           Copy-Item README.md, RELEASE_NOTES*.md -Destination source-package
-          @("Commit: ${{ github.sha }}", "Version: ${{ steps.version.outputs.version }}", "Executable SHA256: $((Get-FileHash src/BioPager.exe -Algorithm SHA256).Hash)") | Set-Content source-package/BUILD_INFO.txt
-          Copy-Item source-package/BUILD_INFO.txt src/BUILD_INFO.txt
+          $info = @("Commit: ${{ github.sha }}", "Version: $((Get-Item src/BioPager.exe).VersionInfo.FileVersion)", "Executable SHA256: $((Get-FileHash src/BioPager.exe -Algorithm SHA256).Hash)", "Installer SHA256: $((Get-FileHash dist/BioPager-Setup-1.1.0.exe -Algorithm SHA256).Hash)")
+          $info | Set-Content source-package/BUILD_INFO.txt
+          $info | Set-Content dist/BUILD_INFO.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: BioPager-${{ steps.version.outputs.version }}-windows-x64
-          path: |
-            src/BioPager.exe
-            src/BUILD_INFO.txt
+          name: BioPager-1.1.0-setup
+          path: dist
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: BioPager-${{ steps.version.outputs.version }}-source
+          name: BioPager-1.1.0-portable
+          path: src/BioPager.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BioPager-1.1.0-source
           path: source-package
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: BioPager-${{ steps.version.outputs.version }}-test-evidence
+          name: BioPager-1.1.0-test-evidence
           path: |
             preview-evidence
+            installer-evidence
+            installer-build.log
+            installer-tests.log
             src/unit-test-results.txt
             src/window-test-results.txt
             src/build.log
