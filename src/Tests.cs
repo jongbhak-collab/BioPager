@@ -165,6 +165,7 @@ namespace BioPager {
      DesktopFallback keyboard=new DesktopFallback(DesktopFallback.ReadIds,DesktopFallback.ReadCurrent,delegate(ushort key){return Native.Shortcut(key,true);});
      try{
       int keyboardResult=await keyboard.Create();
+      Console.WriteLine("Keyboard create result="+keyboardResult+"; before count="+original.Count+"; after count="+Ids().Count+"; original="+originalActive+"; current="+DesktopFallback.ReadCurrent());
       foreach(Guid g in Ids())if(!original.Contains(g))added.Add(g);
       Check(keyboardResult==0&&Ids().Count==original.Count+1&&DesktopFallback.ReadCurrent()==originalActive,"actual Windows shortcut creates desktop and restores original");
       Guid keyboardDesk=added[0];

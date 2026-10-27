@@ -47,7 +47,7 @@ namespace BioPager {
     if(!Same(layout,ids())||current()!=layout[from])return 12;
     Guid next=layout[from+direction];
     if(!shortcut((ushort)(direction>0?0x27:0x25)))return 31;
-    bool done=false;for(int n=0;n<60;n++){if(cancelled)return 90;if(!Same(layout,ids()))return 12;if(current()==next){done=true;break;}await Task.Delay(20);}
+    bool done=false;for(int n=0;n<250;n++){if(cancelled)return 90;if(!Same(layout,ids()))return 12;if(current()==next){done=true;break;}await Task.Delay(20);}
     if(!done)return 26;
     if(!Same(layout,ids()))return 12;
     from+=direction;
@@ -59,7 +59,7 @@ namespace BioPager {
    List<Guid> before=ids();Guid original=current();
    if(before.Count<1||!before.Contains(original))return 12;
    if(!shortcut(0x44))return 31;
-   for(int n=0;n<75;n++){
+   for(int n=0;n<250;n++){
     if(cancelled)return 90;
     List<Guid> after=ids();
     if(after.Count==before.Count+1){
