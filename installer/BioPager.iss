@@ -1,7 +1,7 @@
 ; Copyright (c) 2026 Jong Bhak. BioLicense 1.0.
 ; AppId and install mode MUST remain stable across future releases.
 #ifndef AppVersion
-  #define AppVersion "1.1.0"
+  #define AppVersion "1.1.1"
 #endif
 #ifndef PayloadDir
   #define PayloadDir "..\src"
@@ -91,6 +91,8 @@ begin
     'An existing BioPager will be closed gracefully before installation. Other applications stay open.';
   UsagePage := CreateOutputMsgPage(wpWelcome, 'Using BioPager',
     'Your desktops, at a glance',
+    'FIRST LAUNCH' + #13#10 +
+    'A new profile with one desktop is initialized to seven total. Existing profiles keep their desktops and settings. If setup fails, check Win+Tab, then use Retry initial seven-desktop setup in the pager menu.' + #13#10#13#10 +
     'SWITCH AND FOCUS' + #13#10 +
     'Click a desktop tile to switch. Double-click an app preview to focus it.' + #13#10#13#10 +
     'MOVE WINDOWS' + #13#10 +

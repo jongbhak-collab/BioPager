@@ -11,3 +11,9 @@ obj/
 
 /preview-evidence/
 /*-tests.log
+
+/dist/
+/installer/build/
+/installer/*.exe
+/src/*Tests.exe
+/src/*test-results.txt

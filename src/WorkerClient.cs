@@ -36,7 +36,7 @@ namespace BioPager {
     if(disposed)return 90;
     // Never replay a mutation after a timeout/crash. Windows may have applied it.
     int code=await Exchange(command);
-    if(code==23||code==40||code==91)Stop();
+    if(code==23||code==40||code==91){Stop();if(capability!=null)return 93;}
     return code;
    }catch{Stop();return 40;}finally{gate.Release();}
   }
@@ -78,7 +78,8 @@ namespace BioPager {
      return Int32.TryParse(child.StandardOutput.ReadLine(),out result)?result:40;
     }catch{return 40;}
    });
-   if(await Task.WhenAny(response,Task.Delay(timeout))!=response){Stop();return 91;}
+   int wait=command.StartsWith("ensure ")?Math.Max(timeout,20000):timeout;
+   if(await Task.WhenAny(response,Task.Delay(wait))!=response){Stop();return 91;}
    return await response;
   }
   void Stop(){Process child=process;process=null;if(child==null)return;

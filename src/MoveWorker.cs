@@ -112,9 +112,13 @@ namespace BioPager {
     return VerifyEnumeration();
   }
   static int VerifyEnumeration(){
-   List<Guid> observed=DesktopIds();int total=count();
-   if(total<1||total!=observed.Count)return 23;
-   for(int i=0;i<total;i++)if(id(i)!=observed[i])return 23;
+   List<Guid> native=NativeIds(),observed=DesktopIds();int total=native.Count;
+   // Explorer may not persist VirtualDesktopIDs until the second desktop exists.
+   // Missing registry data must not invalidate an otherwise consistent OS enumeration.
+   if(observed.Count!=0){
+    if(total!=observed.Count)return 23;
+    for(int i=0;i<total;i++)if(native[i]!=observed[i])return 23;
+   }
    int active=currentNumber();return active<0||active>=total?23:0;
   }
   static int Switch(Guid target){
@@ -152,11 +156,16 @@ namespace BioPager {
   }
   static int Create(){
    if(createDesktop==null)return 20;
-   int before=count();if(before<1)return 23;
-   int created=createDesktop();
-   for(int i=0;i<50;i++){
-    if(count()>before&&created>=0&&id(created)!=Guid.Empty)return 0;
-    Thread.Sleep(10);
+   List<Guid> before=NativeIds();
+   createDesktop(); // Return conventions differ between adapters; verify OS identities.
+   for(int i=0;i<100;i++){
+    List<Guid> after=NativeIds();
+    if(after.Count==before.Count+1){
+     for(int n=0;n<before.Count;n++)if(after[n]!=before[n])return 28;
+     if(!before.Contains(after[before.Count]))return 0;
+    }
+    if(after.Count!=before.Count)return 28;
+    Thread.Sleep(20);
    }
    return 28;
   }
@@ -224,7 +233,7 @@ namespace BioPager {
   internal static string Describe(int result){
    switch(result){
     case 11:return "The selected window closed or changed. Try dragging it again.";
-    case 12:return "The desktop layout changed. Refresh and drag the window again.";
+    case 12:return "Desktop identities are unavailable or changed. Open Win+Tab to check the layout, then retry. On a new account, create a desktop in Task View if Explorer has not initialized its desktop list.";
     case 20:return "No verified desktop helper is available for this action. Switching and new desktops use Windows shortcuts. Use Task View for app dragging and desktop removal.";
     case 21:return "The embedded helper could not be prepared. Check free disk space and write access to your local app-data folder, then restart BioPager.";
     case 22:return "The embedded helper failed verification. Replace BioPager.exe with a fresh copy of this release.";
@@ -237,6 +246,7 @@ namespace BioPager {
     case 30:return "Desktop removal was not confirmed. Check Task View before trying again.";
     case 31:return "Release Ctrl, Alt, Shift and Windows keys, then try again. Windows may also block keyboard input to an elevated app.";
     case 92:return "Another desktop change is in progress. Try again shortly.";
+    case 93:return "The helper stopped during the operation. Windows may already have applied it. Check Win+Tab before retrying; no extra shortcut was sent.";
     case 91:return "The desktop helper timed out. Check Task View before retrying.";
     default:return "The move could not be confirmed on this Windows build. Use Win+Tab for this window. Code: "+result;
    }

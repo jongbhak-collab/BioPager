@@ -1,6 +1,6 @@
 # BioPager Windows installer
 
-Build `src/Build.cmd`, then run `powershell -File installer/BuildInstaller.ps1` on Windows x64 with Inno Setup 6.3 or later installed. The output is `dist/BioPager-Setup-1.1.0.exe`, a single offline setup executable.
+Build `src/Build.cmd`, then run `powershell -File installer/BuildInstaller.ps1` on Windows x64 with Inno Setup 6.3 or later installed. The output is `dist/BioPager-Setup-1.1.1.exe`, a single offline setup executable.
 
 ## Behavior
 
@@ -17,7 +17,7 @@ Build `src/Build.cmd`, then run `powershell -File installer/BuildInstaller.ps1` 
 Normal setup ends with a checked option to start BioPager. For unattended setup:
 
 ```cmd
-BioPager-Setup-1.1.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+BioPager-Setup-1.1.1.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 ```
 
 Add `/LAUNCH` to start afterward. `/TASKS="startup,desktopicon"` opts into both extra tasks; `/TASKS=""` selects neither. A silent install without `/TASKS` keeps prior choices.

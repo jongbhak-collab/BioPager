@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 using Microsoft.Win32;
 namespace BioPager {
  // Windows' keyboard shortcuts do not depend on undocumented COM vtables.
@@ -17,13 +18,23 @@ namespace BioPager {
    byte[] value=Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\VirtualDesktops","VirtualDesktopIDs",null) as byte[];
    List<Guid> result=new List<Guid>();
    if(value!=null&&value.Length%16==0)for(int i=0;i<value.Length;i+=16){byte[] part=new byte[16];Array.Copy(value,i,part,0,16);Guid g=new Guid(part);if(g==Guid.Empty||result.Contains(g))return new List<Guid>();result.Add(g);}
+   // Bootstrap only the identity, never a claimed OS count. Create still requires
+   // Explorer to publish a complete two-ID list before acknowledging the input.
+   if(value==null){Guid active=ReadCurrent();if(active!=Guid.Empty)result.Add(active);}
    return result;
   }
   internal static Guid ReadCurrent(){
    string root=@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\";
    byte[] value=Registry.GetValue(root+"VirtualDesktops","CurrentVirtualDesktop",null) as byte[];
    if(value==null||value.Length!=16)value=Registry.GetValue(root+"SessionInfo\\"+Process.GetCurrentProcess().SessionId+"\\VirtualDesktops","CurrentVirtualDesktop",null) as byte[];
-   return value!=null&&value.Length==16?new Guid(value):Guid.Empty;
+   if(value!=null&&value.Length==16)return new Guid(value);
+   IDesktopManager manager=null;
+   try{
+    manager=(IDesktopManager)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("AA509086-5CA9-4C25-8F95-589D3C07B48A")));
+    IntPtr window=Native.GetForegroundWindow();bool onCurrent;Guid active;
+    if(window!=IntPtr.Zero&&manager.IsWindowOnCurrentVirtualDesktop(window,out onCurrent)==0&&onCurrent&&manager.GetWindowDesktopId(window,out active)==0)return active;
+   }catch{}finally{if(manager!=null)Marshal.ReleaseComObject(manager);}
+   return Guid.Empty;
   }
   static bool Same(List<Guid> a,List<Guid> b){if(a.Count!=b.Count)return false;for(int i=0;i<a.Count;i++)if(a[i]!=b[i])return false;return true;}
   internal async Task<int> Switch(Guid target){
@@ -69,6 +80,6 @@ namespace BioPager {
    while(ids().Count<minimum){int result=await Create();if(result!=0)return result;}
    return 0;
   }
-  internal static bool CanFallback(int code){return code==20||code==23||code==40||code==91;}
+  internal static bool CanFallback(int code){return code==20;}
  }
 }

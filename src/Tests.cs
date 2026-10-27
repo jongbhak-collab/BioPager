@@ -24,23 +24,28 @@ namespace BioPager {
    PreviewTests.Unit();
    Check(WindowsCompatibility.Candidates().Length==5&&WindowsCompatibility.Candidates()[0]=="modern","adapter candidates are independent of Windows build numbers");
    Check(!WindowsCompatibility.IsBackend("unexpected")&&WindowsCompatibility.IsBackend("legacy21"),"only embedded known adapters may be probed");
-   Check(!DesktopFallback.CanFallback(28)&&!DesktopFallback.CanFallback(22),"unconfirmed mutations and bad payloads are not retried via shortcuts");
+   foreach(int code in new[]{12,22,23,28,40,91,93})Check(!DesktopFallback.CanFallback(code),"no automatic shortcut after uncertain result "+code);
+   Check(Marshal.SizeOf(typeof(Native.INPUT))==40,"x64 SendInput uses the complete 40-byte INPUT union");
    Bind("count","FakeCount");Bind("createDesktop","FakeCreate");Bind("id","FakeId");Bind("removeDesktop","FakeRemove");
    fakeCount=1;creates=0;
-   Check((int)Call("EnsureMinimum",6)==0&&fakeCount==6&&creates==5,"first-use setup adds five to a one-desktop profile");
-   Check((int)Call("EnsureMinimum",6)==0&&creates==5,"repeated setup does not recreate desktops");
-   fakeCount=10;Check((int)Call("EnsureMinimum",6)==0&&fakeCount==10,"existing larger layouts are preserved");
+   Check((int)Call("EnsureMinimum",7)==0&&fakeCount==7&&creates==6,"first-use setup adds six to a one-desktop profile");
+   Check((int)Call("EnsureMinimum",7)==0&&creates==6,"repeated setup does not recreate desktops");
+   fakeCount=10;Check((int)Call("EnsureMinimum",7)==0&&fakeCount==10,"existing larger layouts are preserved");
    fakeCount=1;Check((int)Call("Remove",fakeSource,fakeNext)==27&&fakeCount==1,"last desktop cannot be removed");
    fakeCount=3;Check((int)Call("Remove",fakeSource,FakeId(2))==12&&fakeCount==3,"stale or non-next target rejected before removal");
    refuse=true;Check((int)Call("Remove",fakeSource,fakeNext)==29&&fakeCount==3,"Windows refusal does not report success");refuse=false;
    string folder=Path.Combine(Path.GetTempPath(),"BioPagerProfileTest-"+Guid.NewGuid().ToString("N"));
    Directory.CreateDirectory(folder);
    try{
-    ProfileSetup profile=new ProfileSetup(folder,false);Check(profile.Pending,"fresh profile marks setup pending");
+    ProfileSetup profile=new ProfileSetup(folder,false);Check(profile.Pending&&profile.Unstarted,"fresh profile is distinct from an attempted setup");
+    profile.Begin();Check(!new ProfileSetup(folder,false).Unstarted,"setup intent is persisted before OS mutation");
     File.WriteAllText(Path.Combine(folder,"settings.txt"),"saved");
     Check(new ProfileSetup(folder,true).Pending,"failed first setup remains pending after settings save");
     profile.Complete();Check(!new ProfileSetup(folder,true).Pending,"completed setup does not run again");
     string legacy=Path.Combine(folder,"legacy");Check(!new ProfileSetup(legacy,true).Pending,"upgrading existing users skips default desktop creation");
+    Check(!new ProfileSetup(legacy,false).Pending,"established profile marker survives missing settings");
+    string corrupt=Path.Combine(folder,"corrupt");Directory.CreateDirectory(corrupt);File.WriteAllText(Path.Combine(corrupt,"initial-desktops-v1.txt"),"unknown");
+    Check(!new ProfileSetup(corrupt,false).Pending,"unrecognized setup state never creates desktops");
    }finally{Directory.Delete(folder,true);}
    typeof(MoveWorker).GetField("ready",BindingFlags.Static|BindingFlags.NonPublic).SetValue(null,-1);
   }
@@ -55,7 +60,10 @@ namespace BioPager {
    Check(await fallback.Switch(c)==0&&keys==2&&active==c,"fallback switches one acknowledged desktop at a time");
    Check(await fallback.Switch(Guid.NewGuid())==12&&keys==2,"fallback rejects missing target without sending keys");
    Check(await fallback.Create()==0&&layout.Count==4&&active==c,"fallback creation restores original desktop");
-   Check(await fallback.Ensure(6)==0&&layout.Count==6&&active==c,"fallback fresh profile reaches six desks");
+   Check(await fallback.Ensure(7)==0&&layout.Count==7&&active==c,"fallback fresh profile reaches seven desks");
+   int beforeKeys=keys;Check(await fallback.Ensure(7)==0&&keys==beforeKeys,"completed fallback sends no extra shortcut");
+   DesktopFallback unconfirmed=new DesktopFallback(delegate{return new List<Guid>(layout);},delegate{return active;},delegate(ushort key){keys++;return true;});
+   beforeKeys=keys;Check(await unconfirmed.Ensure(8)==28&&keys==beforeKeys+1,"unacknowledged creation sends exactly one shortcut and stops");
    DesktopFallback blocked=new DesktopFallback(delegate{return new List<Guid>(layout);},delegate{return active;},delegate(ushort key){return false;});
    Check(await blocked.Switch(a)==31&&await blocked.Create()==31,"held modifiers or blocked input cannot report success");
    DesktopFallback changed=new DesktopFallback(delegate{return new List<Guid>(layout);},delegate{return active;},delegate(ushort key){layout.Reverse();return true;});
@@ -81,6 +89,10 @@ namespace BioPager {
     }
     using(WorkerClient worker=new WorkerClient(Application.ExecutablePath,"--probe-badpayload",1500))
      Check(await worker.Request("ping")==22,"payload verification failure is not hidden by another adapter");
+    using(WorkerClient worker=new WorkerClient(Application.ExecutablePath,"--probe-mutation \""+marker+"\"",1500)){
+     Check(await worker.Request("create")==93,"crash after create is an uncertain mutation, not fallback eligibility");
+     Check(File.ReadAllLines(marker).Length==2,"create is attempted once across all adapters");
+    }
     using(WorkerClient worker=new WorkerClient(Application.ExecutablePath,"--probe-cap",1500)){
      Check(await worker.Request("switch "+Guid.NewGuid())==0&&worker.SelectedBackend=="modern","switch uses an adapter with the switch capability");
      Check(await worker.Request("create")==0&&worker.SelectedBackend=="2024-01-25-windows11","missing create capability tries a different adapter before mutation");
@@ -94,6 +106,44 @@ namespace BioPager {
    List<Guid> result=new List<Guid>();if(data!=null)for(int i=0;i<data.Length;i+=16){byte[] g=new byte[16];Array.Copy(data,i,g,0,16);result.Add(new Guid(g));}return result;
   }
   static async Task<int> Send(WorkerClient worker,string command){int result=await worker.Request(command);Console.WriteLine(command+" => "+result);return result;}
+  static int OnboardingCi(){
+   if(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")!="true")throw new InvalidOperationException("Fresh-profile OS test is restricted to an isolated GitHub runner.");
+   List<Guid> original=DesktopFallback.ReadIds();
+   Check(original.Count==1,"isolated runner starts with one desktop");
+   string folder=Path.Combine(Path.GetTempPath(),"BioPager-onboarding-"+Guid.NewGuid().ToString("N"));
+   string settings=Path.Combine(folder,"settings.txt");Exception failure=null;
+   try{
+    using(Pager pager=new Pager(settings)){
+     pager.Shown+=async delegate {
+      try{
+       string marker=Path.Combine(folder,"initial-desktops-v1.txt");
+       for(int n=0;n<600&&File.ReadAllText(marker).Trim()!="complete";n++)await Task.Delay(100);
+       Check(File.ReadAllText(marker).Trim()=="complete"&&Ids().Count==7,"real fresh-profile launch is OS-confirmed at exactly seven desktops");
+       Check(Ids().Contains(original[0]),"first-launch setup keeps the original desktop identity");
+      }catch(Exception ex){failure=ex;}finally{pager.Close();}
+     };Application.Run(pager);
+    }
+    if(failure!=null)throw failure;
+    List<Guid> seven=Ids();
+    using(Pager pager=new Pager(settings)){
+     pager.Shown+=async delegate {await Task.Delay(2000);try{Check(Ids().Count==7&&Ids().TrueForAll(seven.Contains),"existing profile relaunch preserves all seven desktop identities");}catch(Exception ex){failure=ex;}finally{pager.Close();}};
+     Application.Run(pager);
+    }
+    if(failure!=null)throw failure;
+    return 0;
+   }finally{
+    // Only remove identities absent before this isolated test. Never remove originals.
+    using(WorkerClient worker=new WorkerClient(Application.ExecutablePath)){
+     foreach(Guid g in Ids())if(!original.Contains(g)){
+      List<Guid> ids=Ids();int index=ids.IndexOf(g);
+      int result=Task.Run(delegate{return worker.Request("remove "+g+" "+ids[(index+1)%ids.Count]);}).GetAwaiter().GetResult();
+      Check(result==0,"isolated onboarding test removes only its own temporary desktop");
+     }
+    }
+    Check(Ids().Count==original.Count&&Ids().TrueForAll(original.Contains),"onboarding test restores the runner's original layout");
+    if(Directory.Exists(folder))Directory.Delete(folder,true);
+   }
+  }
   static async Task Integration(Form host){
    await Task.Delay(500); // Let Explorer register the normal fixture app window.
    List<Guid> original=Ids();List<Guid> added=new List<Guid>();Guid first=original[0];
@@ -172,6 +222,8 @@ namespace BioPager {
    if(args.Length>0&&args[0].StartsWith("--probe-")){
     string line;while((line=Console.ReadLine())!=null){
      if(args[0]=="--probe-none")Console.WriteLine(line=="ping"?23:99);
+     else if(args[0]=="--probe-mutation"&&line=="create"){File.AppendAllText(args[1],"create\n");Environment.Exit(77);}
+     else if(args[0]=="--probe-mutation")Console.WriteLine(0);
      else if(args[0]=="--probe-badpayload")Console.WriteLine(22);
      else if(args[0]=="--probe-cap")Console.WriteLine(line=="supports remove"||(line=="supports create"&&args[args.Length-1]=="modern")?20:0);
      else if(args[args.Length-1]=="modern")Console.WriteLine(23);
@@ -187,6 +239,7 @@ namespace BioPager {
     Unit();FallbackTests().GetAwaiter().GetResult();ProbeTests().GetAwaiter().GetResult();
     if(args.Length>0&&args[0]=="--unit")return 0;
     Native.SetProcessDPIAware();Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
+    if(args.Length>0&&args[0]=="--onboarding-ci")return OnboardingCi();
     if(args.Length>0&&args[0]=="--window-tests")return PreviewTests.RunWindows();
     if(args.Length>0&&args[0]=="--preview"){
      string profile=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"test-profile","settings.txt");

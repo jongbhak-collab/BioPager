@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Version='1.1.0', [string]$PayloadDir, [string]$OutputDir)
+param([string]$Version='1.1.1', [string]$PayloadDir, [string]$OutputDir)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 if (!$PayloadDir) { $PayloadDir=Join-Path $root 'src' }

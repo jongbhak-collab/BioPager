@@ -12,7 +12,7 @@ using System.Threading;
 [assembly: AssemblyTitle("BioPager Setup Helper")]
 [assembly: AssemblyProduct("BioPager Setup Helper")]
 [assembly: AssemblyCompany("Jong Bhak")]
-[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyVersion("1.1.1.0")]
 namespace BioPagerSetup {
  internal static class Helper {
   delegate bool EnumProc(IntPtr window,IntPtr state);
