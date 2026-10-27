@@ -14,6 +14,22 @@ jobs:
         shell: cmd
         working-directory: src
         run: Build.cmd
+      - name: Build self-contained Windows installer
+        shell: pwsh
+        run: |
+          & ./installer/BuildInstaller.ps1 *>&1 | Tee-Object installer-build.log
+      - name: Verify installer usage screens
+        shell: pwsh
+        run: |
+          $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          & $csc /nologo /warnaserror+ /target:exe /platform:x64 /reference:System.Drawing.dll /out:installer/InstallerUiTests.exe installer/InstallerUiTests.cs
+          if ($LASTEXITCODE -ne 0) { throw 'Installer UI test compilation failed' }
+          & ./installer/InstallerUiTests.exe "$PWD\dist\BioPager-Setup-1.1.0.exe" "$PWD\installer-evidence" *>&1 | Tee-Object installer-ui-tests.log
+          if ($LASTEXITCODE -ne 0) { throw 'Installer UI checks failed' }
+      - name: Test install upgrade repair and uninstall on clean profile
+        shell: pwsh
+        run: |
+          & ./installer/TestInstaller.ps1 *>&1 | Tee-Object installer-tests.log
       - name: Run regression and window-selection checks
         shell: pwsh
         working-directory: src
@@ -28,14 +44,6 @@ jobs:
         run: |
           & .\BioPagerTests.exe --window-tests 2>&1 | Tee-Object -FilePath window-test-results.txt
           if ($LASTEXITCODE -ne 0) { throw 'Native window tests failed' }
-      - name: Build self-contained Windows installer
-        shell: pwsh
-        run: |
-          & ./installer/BuildInstaller.ps1 *>&1 | Tee-Object installer-build.log
-      - name: Test install upgrade repair and uninstall
-        shell: pwsh
-        run: |
-          & ./installer/TestInstaller.ps1 *>&1 | Tee-Object installer-tests.log
       - name: Package source and checksums
         shell: pwsh
         run: |
@@ -43,7 +51,7 @@ jobs:
           New-Item -ItemType Directory -Path source-package/src, source-package/installer -Force | Out-Null
           Get-ChildItem src -File | Where-Object { $_.Extension -in @('.cs', '.cmd', '.md') -or $_.Name -eq 'LICENSE' } | Copy-Item -Destination source-package/src
           Copy-Item src/assets, src/native -Destination source-package/src -Recurse
-          Get-ChildItem installer -File | Copy-Item -Destination source-package/installer
+          Get-ChildItem installer -File | Where-Object { $_.Extension -ne '.exe' } | Copy-Item -Destination source-package/installer
           Copy-Item README.md, RELEASE_NOTES*.md -Destination source-package
           $info = @("Commit: ${{ github.sha }}", "Version: $((Get-Item src/BioPager.exe).VersionInfo.FileVersion)", "Executable SHA256: $((Get-FileHash src/BioPager.exe -Algorithm SHA256).Hash)", "Installer SHA256: $((Get-FileHash dist/BioPager-Setup-1.1.0.exe -Algorithm SHA256).Hash)")
           $info | Set-Content source-package/BUILD_INFO.txt
@@ -72,6 +80,7 @@ jobs:
             installer-evidence
             installer-build.log
             installer-tests.log
+            installer-ui-tests.log
             src/unit-test-results.txt
             src/window-test-results.txt
             src/build.log
