@@ -65,6 +65,7 @@ namespace BioPager {
   internal static bool Shortcut(ushort key,bool ctrl) {
    // Do not release modifiers the user is physically holding.
    foreach(int k in new int[]{0x10,0x11,0x12,0x5B,0x5C}) if((GetAsyncKeyState(k)&0x8000)!=0) return false;
+   if((GetAsyncKeyState(key)&0x8000)!=0)return false;
    List<INPUT> input=new List<INPUT>();
    input.Add(Key(0x5B,false)); if(ctrl) input.Add(Key(0x11,false));
    input.Add(Key(key,false)); input.Add(Key(key,true));
@@ -75,7 +76,7 @@ namespace BioPager {
    // A partial batch can leave our modifiers down. Release only keys whose
    // key-down was accepted in this batch; never replay the shortcut.
    List<INPUT> release=new List<INPUT>();
-   if(sent>=3)release.Add(Key(key,true));
+   if(sent>=(ctrl?3u:2u))release.Add(Key(key,true));
    if(ctrl&&sent>=2)release.Add(Key(0x11,true));
    if(sent>=1)release.Add(Key(0x5B,true));
    if(release.Count>0)SendInput((uint)release.Count,release.ToArray(),Marshal.SizeOf(typeof(INPUT)));

@@ -112,7 +112,10 @@ namespace BioPager {
     return VerifyEnumeration();
   }
   static int VerifyEnumeration(){
-   List<Guid> native=NativeIds(),observed=DesktopIds();int total=native.Count;
+   return VerifyEnumerationAgainst(DesktopIds());
+  }
+  static int VerifyEnumerationAgainst(List<Guid> observed){
+   List<Guid> native=NativeIds();int total=native.Count;
    // Explorer may not persist VirtualDesktopIDs until the second desktop exists.
    // Missing registry data must not invalidate an otherwise consistent OS enumeration.
    if(observed.Count!=0){

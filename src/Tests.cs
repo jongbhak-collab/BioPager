@@ -14,6 +14,7 @@ namespace BioPager {
   static bool refuse;
   static Guid fakeSource=Guid.NewGuid(),fakeNext=Guid.NewGuid();
   static int FakeCount(){return fakeCount;}
+  static int FakeCurrent(){return 0;}
   static int FakeCreate(){creates++;return fakeCount++;}
   static Guid FakeId(int i){return i==0?fakeSource:i==1?fakeNext:new Guid(i,0,0,new byte[8]);}
   static int FakeRemove(int i,int t){if(refuse)return -1;fakeCount--;return 1;}
@@ -27,6 +28,10 @@ namespace BioPager {
    foreach(int code in new[]{12,22,23,28,40,91,93})Check(!DesktopFallback.CanFallback(code),"no automatic shortcut after uncertain result "+code);
    Check(Marshal.SizeOf(typeof(Native.INPUT))==40,"x64 SendInput uses the complete 40-byte INPUT union");
    Bind("count","FakeCount");Bind("createDesktop","FakeCreate");Bind("id","FakeId");Bind("removeDesktop","FakeRemove");
+   Bind("currentNumber","FakeCurrent");fakeCount=1;
+   Check((int)Call("VerifyEnumerationAgainst",new List<Guid>())==0,"missing fresh-account registry IDs permit consistent native OS enumeration");
+   Check((int)Call("VerifyEnumerationAgainst",new List<Guid>{Guid.NewGuid()})==23,"conflicting registry identities reject the adapter");
+   Check((int)Call("VerifyEnumerationAgainst",new List<Guid>{fakeSource,fakeNext})==23,"conflicting registry counts reject the adapter");
    fakeCount=1;creates=0;
    Check((int)Call("EnsureMinimum",7)==0&&fakeCount==7&&creates==6,"first-use setup adds six to a one-desktop profile");
    Check((int)Call("EnsureMinimum",7)==0&&creates==6,"repeated setup does not recreate desktops");
