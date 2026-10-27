@@ -24,7 +24,7 @@ jobs:
           $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
           & $csc /nologo /warnaserror+ /target:exe /platform:x64 /reference:System.Drawing.dll "/out:$PWD\installer\InstallerUiTests.exe" "$PWD\installer\InstallerUiTests.cs"
           if ($LASTEXITCODE -ne 0) { throw 'Installer UI test compilation failed' }
-          & ./installer/InstallerUiTests.exe "$PWD\dist\BioPager-Setup-1.1.0.exe" "$PWD\installer-evidence" *>&1 | Tee-Object installer-ui-tests.log
+          & ./installer/InstallerUiTests.exe "$PWD\dist\BioPager-Setup-1.1.1.exe" "$PWD\installer-evidence" *>&1 | Tee-Object installer-ui-tests.log
           if ($LASTEXITCODE -ne 0) { throw 'Installer UI checks failed' }
       - name: Test install upgrade repair and uninstall on clean profile
         shell: pwsh
@@ -44,6 +44,18 @@ jobs:
         run: |
           & .\BioPagerTests.exe --window-tests 2>&1 | Tee-Object -FilePath window-test-results.txt
           if ($LASTEXITCODE -ne 0) { throw 'Native window tests failed' }
+      - name: Verify fresh and existing profile desktop onboarding
+        shell: pwsh
+        working-directory: src
+        run: |
+          & ./BioPagerTests.exe --onboarding-ci 2>&1 | Tee-Object onboarding-test-results.txt
+          if ($LASTEXITCODE -ne 0) { throw 'OS-confirmed onboarding checks failed' }
+      - name: Verify native creation switching and window moves
+        shell: pwsh
+        working-directory: src
+        run: |
+          & ./BioPagerTests.exe 2>&1 | Tee-Object native-test-results.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Native desktop checks failed' }
       - name: Package source and checksums
         shell: pwsh
         run: |
@@ -53,28 +65,28 @@ jobs:
           Copy-Item src/assets, src/native -Destination source-package/src -Recurse
           Get-ChildItem installer -File | Where-Object { $_.Extension -ne '.exe' } | Copy-Item -Destination source-package/installer
           Copy-Item README.md, RELEASE_NOTES*.md -Destination source-package
-          $info = @("Commit: ${{ github.sha }}", "Version: $((Get-Item src/BioPager.exe).VersionInfo.FileVersion)", "Executable SHA256: $((Get-FileHash src/BioPager.exe -Algorithm SHA256).Hash)", "Installer SHA256: $((Get-FileHash dist/BioPager-Setup-1.1.0.exe -Algorithm SHA256).Hash)")
+          $info = @("Commit: ${{ github.sha }}", "Version: $((Get-Item src/BioPager.exe).VersionInfo.FileVersion)", "Executable SHA256: $((Get-FileHash src/BioPager.exe -Algorithm SHA256).Hash)", "Installer SHA256: $((Get-FileHash dist/BioPager-Setup-1.1.1.exe -Algorithm SHA256).Hash)")
           $info | Set-Content source-package/BUILD_INFO.txt
           $info | Set-Content dist/BUILD_INFO.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: BioPager-1.1.0-setup
+          name: BioPager-1.1.1-setup
           path: dist
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: BioPager-1.1.0-portable
+          name: BioPager-1.1.1-portable
           path: src/BioPager.exe
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: BioPager-1.1.0-source
+          name: BioPager-1.1.1-source
           path: source-package
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: BioPager-1.1.0-test-evidence
+          name: BioPager-1.1.1-test-evidence
           path: |
             preview-evidence
             installer-evidence
@@ -83,5 +95,7 @@ jobs:
             installer-ui-tests.log
             src/unit-test-results.txt
             src/window-test-results.txt
+            src/onboarding-test-results.txt
+            src/native-test-results.txt
             src/build.log
           if-no-files-found: ignore

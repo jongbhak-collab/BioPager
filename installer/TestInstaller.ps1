@@ -1,6 +1,6 @@
 # Run only on an isolated Windows CI runner. Touches this runner's HKCU and test profile.
 [CmdletBinding()]
-param([string]$Version='1.1.0')
+param([string]$Version='1.1.1')
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $setup=Join-Path $root "dist/BioPager-Setup-$Version.exe"

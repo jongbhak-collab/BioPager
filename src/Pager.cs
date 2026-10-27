@@ -65,12 +65,22 @@ namespace BioPager {
   internal static bool Shortcut(ushort key,bool ctrl) {
    // Do not release modifiers the user is physically holding.
    foreach(int k in new int[]{0x10,0x11,0x12,0x5B,0x5C}) if((GetAsyncKeyState(k)&0x8000)!=0) return false;
+   if((GetAsyncKeyState(key)&0x8000)!=0)return false;
    List<INPUT> input=new List<INPUT>();
    input.Add(Key(0x5B,false)); if(ctrl) input.Add(Key(0x11,false));
    input.Add(Key(key,false)); input.Add(Key(key,true));
    if(ctrl) input.Add(Key(0x11,true)); input.Add(Key(0x5B,true));
    INPUT[] a=input.ToArray();
-   return SendInput((uint)a.Length,a,Marshal.SizeOf(typeof(INPUT)))==a.Length;
+   uint sent=SendInput((uint)a.Length,a,Marshal.SizeOf(typeof(INPUT)));
+   if(sent==a.Length)return true;
+   // A partial batch can leave our modifiers down. Release only keys whose
+   // key-down was accepted in this batch; never replay the shortcut.
+   List<INPUT> release=new List<INPUT>();
+   if(sent>=(ctrl?3u:2u))release.Add(Key(key,true));
+   if(ctrl&&sent>=2)release.Add(Key(0x11,true));
+   if(sent>=1)release.Add(Key(0x5B,true));
+   if(release.Count>0)SendInput((uint)release.Count,release.ToArray(),Marshal.SizeOf(typeof(INPUT)));
+   return false;
   }
   static INPUT Key(ushort k,bool up) { INPUT i=new INPUT(); i.type=1; i.data.keyboard.key=k; i.data.keyboard.flags=(up?2u:0u)|((k==0x25||k==0x27||k==0x5B)?1u:0u); return i; }
  }
@@ -155,6 +165,7 @@ namespace BioPager {
    taskbarCreated=Native.RegisterWindowMessage("TaskbarCreated");
    ContextMenuStrip menu=new ContextMenuStrip();
    newDesktopItem=new ToolStripMenuItem("New desktop");newDesktopItem.Click+=async delegate {await CreateDesktop();};menu.Items.Add(newDesktopItem);
+   menu.Items.Add("Retry initial seven-desktop setup",null,async delegate {if(!desktopOperation&&!busy)await InitializeDesktops();});
    removeDesktopItem=new ToolStripMenuItem("Remove desktop (move apps to next)");removeDesktopItem.Click+=async delegate {await RemoveDesktop(menuDesktop);};menu.Items.Add(removeDesktopItem);
    menu.Opening+=delegate {
     RefreshState();menuDesktop=current;
@@ -666,9 +677,15 @@ namespace BioPager {
    if(profileSetup==null||!profileSetup.Pending)return;
    desktopOperation=true;
    try{
-    int result=await worker.Request("ping");
-    if(DesktopFallback.CanFallback(result))result=await fallback.Ensure(6);
-    else if(result==0)result=await worker.Request("ensure 6");
+    // A pre-existing multi-desktop workspace is an established profile, even
+    // without BioPager settings. Persist intent before creating anything so a
+    // partial setup remains eligible after settings have been saved.
+    if(profileSetup.Unstarted){
+     if(DesktopFallback.ReadIds().Count>1){profileSetup.Complete();return;}
+     profileSetup.Begin();
+    }
+    int result=await worker.Request("ensure 7");
+    if(DesktopFallback.CanFallback(result))result=await fallback.Ensure(7);
     if(IsDisposed)return;
     if(result==0){profileSetup.Complete();RefreshState();LayoutBar();}
     else SetStatus("Initial desktop setup: "+MoveWorker.Describe(result));
@@ -678,9 +695,8 @@ namespace BioPager {
   async Task CreateDesktop(){
    if(desktopOperation||busy)return;desktopOperation=true;CancelDrag();
    try{
-    int result=await worker.Request("ping");if(IsDisposed)return;
+    int result=await worker.Request("create");if(IsDisposed)return;
     if(DesktopFallback.CanFallback(result))result=await fallback.Create();
-    else if(result==0)result=await worker.Request("create");
     RefreshState();LayoutBar();
     if(result!=0)SetStatus("New desktop: "+MoveWorker.Describe(result));
    }finally{desktopOperation=false;}
