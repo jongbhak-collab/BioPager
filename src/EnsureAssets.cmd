@@ -1,6 +1,12 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-if exist "native\VirtualDesktopAccessor.dll" if exist "assets\BioPager.ico" exit /b 0
-powershell -NoProfile -Command "$ErrorActionPreference='Stop'; $stage=Join-Path $env:TEMP ('BioPager-assets-'+[guid]::NewGuid()); try { Expand-Archive -LiteralPath (Join-Path (Split-Path $pwd.Path) 'BioPager-v0.4.10-source.zip') -DestinationPath $stage; Copy-Item -Path (Join-Path $stage 'native'),(Join-Path $stage 'assets') -Destination $pwd.Path -Recurse -Force } finally { if(Test-Path $stage){Remove-Item $stage -Recurse -Force} }"
-exit /b %errorlevel%
+rem Required assets are tracked directly; no historical source ZIP is needed.
+for %%F in (assets\BioPager.ico assets\BioPager-logo.jpg native\VirtualDesktopAccessor.dll native\2023-02-22-windows11.dll native\2023-11-10-windows11.dll native\2024-01-25-windows11.dll native\LICENSE.txt native\Legacy21-LICENSE.txt) do (
+ if not exist "%%F" (
+  echo Required build asset is missing: %%F
+  echo Restore src\assets and src\native from the repository or source package.
+  exit /b 1
+ )
+)
+exit /b 0

@@ -10,5 +10,3 @@ bin/
 obj/
 /BioPagerTests.exe
 /test-profile/
-assets/
-native/

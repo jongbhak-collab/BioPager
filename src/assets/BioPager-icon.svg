@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<title>BioPager — primary-color desktop grid</title>
+<rect x="2" y="2" width="60" height="60" rx="6" fill="#111114"/>
+<path d="M6 6H38V38H6Z" fill="#F40D2D"/>
+<path d="M42 6H58V20H42Z" fill="#FFDA00"/>
+<path d="M42 24H58V38H42Z" fill="#FAFAF7"/>
+<path d="M6 42H20V58H6Z" fill="#FAFAF7"/>
+<path d="M24 42H38V58H24Z" fill="#FAFAF7"/>
+<path d="M42 42H58V58H42Z" fill="#0755C9"/>
+</svg>
