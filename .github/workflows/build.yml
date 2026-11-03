@@ -64,7 +64,8 @@ jobs:
           Get-ChildItem src -File | Where-Object { $_.Extension -in @('.cs', '.cmd', '.md') -or $_.Name -eq 'LICENSE' } | Copy-Item -Destination source-package/src
           Copy-Item src/assets, src/native -Destination source-package/src -Recurse
           Get-ChildItem installer -File | Where-Object { $_.Extension -ne '.exe' } | Copy-Item -Destination source-package/installer
-          Copy-Item README.md, RELEASE_NOTES*.md -Destination source-package
+          Copy-Item README.md -Destination source-package
+          Copy-Item docs -Destination source-package -Recurse
           $info = @("Commit: ${{ github.sha }}", "Version: $((Get-Item src/BioPager.exe).VersionInfo.FileVersion)", "Executable SHA256: $((Get-FileHash src/BioPager.exe -Algorithm SHA256).Hash)", "Installer SHA256: $((Get-FileHash dist/BioPager-Setup-1.1.1.exe -Algorithm SHA256).Hash)")
           $info | Set-Content source-package/BUILD_INFO.txt
           $info | Set-Content dist/BUILD_INFO.txt
