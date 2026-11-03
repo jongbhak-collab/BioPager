@@ -6,9 +6,13 @@ Fixes fresh-account desktop creation and initializes eligible new profiles to **
 
 ## Download and install
 
-[PR #9](https://github.com/jongbhak-collab/BioPager/pull/9) contains the review branch and links to validated downloads. In its successful **Build BioPager** run, download **BioPager-1.1.1-setup**, extract the ZIP and run **BioPager-Setup-1.1.1.exe**. **BioPager-1.1.1-portable**, matching source and test evidence are also available. GitHub Actions artifact downloads may require sign-in and expire according to repository retention.
+**[Download BioPager 1.1.1 Setup.exe](https://github.com/jongbhak-collab/BioPager/releases/download/v1.1.1/BioPager-Setup-1.1.1.exe)** — the recommended Windows x64 installer.
 
-Setup installs offline into `%LOCALAPPDATA%\Programs\BioPager`, includes usage instructions and an offline Quick Start guide, and upgrades the managed installation in place while preserving preferences. There is no need to uninstall first. The historical root `BioPager.exe` is not this build.
+[Portable ZIP](https://github.com/jongbhak-collab/BioPager/releases/download/v1.1.1/BioPager-1.1.1-portable.zip) · [Latest release and all downloads](https://github.com/jongbhak-collab/BioPager/releases/latest) · [Checksums](https://github.com/jongbhak-collab/BioPager/releases/download/v1.1.1/SHA256SUMS.txt)
+
+Run Setup.exe to install or upgrade. The installer is offline and self-contained. Packages are unsigned.
+
+Setup installs offline into `%LOCALAPPDATA%\Programs\BioPager`, includes usage instructions and an offline Quick Start guide, and upgrades the managed installation in place while preserving preferences. There is no need to uninstall first. The root `BioPager.exe` is the same validated 1.1.1 portable executable.
 
 Right-click the pager for **New desktop** or **Retry initial seven-desktop setup**. Check Win+Tab after an unconfirmed operation before retrying. BioPager verifies OS desktop identities and count before reporting success, and does not repeat uncertain keyboard or native mutations automatically.
 
